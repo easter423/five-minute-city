@@ -1,0 +1,81 @@
+@font-face{
+  font-family:'Mulmaru Mono';
+  src:url('../assets/fonts/MulmaruMono.woff2') format('woff2');
+  font-display:swap;
+}
+
+:root{
+  --ink:#0b1026;
+  --chip:rgba(8,12,32,.55);
+  --chip-line:rgba(255,255,255,.25);
+  --warm:#ffd27f;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--ink)}
+body{
+  font-family:'Mulmaru Mono',ui-monospace,monospace;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:none;
+}
+
+#stage{position:fixed;inset:0;overflow:hidden}
+#scene{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  image-rendering:pixelated;image-rendering:crisp-edges;
+}
+
+/* ---------- HUD ---------- */
+.hud{position:fixed;z-index:10;color:#fff;user-select:none}
+.chip{
+  background:var(--chip);border:1px solid var(--chip-line);
+  backdrop-filter:blur(3px);border-radius:3px;
+}
+
+#clockbox{top:14px;left:14px;padding:8px 12px;display:flex;align-items:baseline;gap:10px}
+#clock{font-size:15px;letter-spacing:1px;color:var(--warm)}
+#phase{font-size:13px;letter-spacing:3px;opacity:.85}
+
+#statbox{top:14px;right:14px;padding:8px 12px;display:flex;gap:14px;font-size:13px}
+#statbox b{color:var(--warm);font-weight:normal;margin-left:2px}
+
+#hint{
+  bottom:52px;left:50%;transform:translateX(-50%);
+  font-size:13px;letter-spacing:1px;opacity:0;transition:opacity 1.2s;
+  text-shadow:0 1px 3px rgba(0,0,0,.8);white-space:nowrap;
+}
+#legend{
+  bottom:16px;left:50%;transform:translateX(-50%);
+  font-size:12px;letter-spacing:1px;opacity:.55;
+  text-shadow:0 1px 3px rgba(0,0,0,.8);white-space:nowrap;
+}
+
+#toast{
+  top:44%;left:50%;transform:translate(-50%,-50%);
+  font-size:14px;line-height:2;text-align:center;color:#fff;
+  padding:12px 18px;opacity:0;pointer-events:none;transition:opacity .7s;
+  white-space:pre-line;
+}
+
+/* ---------- touch controls ---------- */
+#touch{display:none}
+body.is-touch #touch{display:block}
+body.is-touch #legend{display:none}
+.tgroup{position:fixed;bottom:18px;z-index:20;display:flex;gap:10px}
+.tgroup.left{left:16px}
+.tgroup.right{right:16px}
+.tbtn{
+  width:52px;height:52px;border-radius:50%;
+  border:1px solid var(--chip-line);background:var(--chip);
+  color:#fff;font-family:inherit;font-size:20px;
+  display:flex;align-items:center;justify-content:center;
+}
+.tbtn:active{background:rgba(255,210,127,.3)}
+
+@media (max-width:560px){
+  #clockbox{padding:6px 9px}#clock{font-size:13px}
+  #statbox{padding:6px 9px;font-size:12px}
+  #hint{font-size:12px;bottom:84px}
+}
+@media (prefers-reduced-motion:reduce){
+  #hint{transition:none}
+}

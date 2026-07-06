@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>5분 도시 — five minute city</title>
+<meta name="description" content="하루가 5분에 흘러가는 픽셀 도시를 걸어보세요.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage"><canvas id="scene" width="480" height="270"></canvas></div>
+
+<!-- HUD -->
+<div class="hud chip" id="clockbox">
+  <span id="clock">PM 07:12</span><span id="phase">노을</span>
+</div>
+<div class="hud chip" id="statbox">
+  <span class="stat">✦ <b id="wishcount">0</b></span>
+  <span class="stat">☕ <b id="cancount">0</b></span>
+</div>
+<div class="hud" id="hint"></div>
+<div class="hud" id="legend">←→ 걷기 · ↑ 살펴보기 · SPACE 점프 · R 비 · M 소리</div>
+<div class="hud chip" id="toast"></div>
+
+<!-- 모바일 터치 컨트롤 (터치 기기에서만 표시) -->
+<div id="touch">
+  <div class="tgroup left">
+    <button class="tbtn" data-k="left"  aria-label="왼쪽으로 걷기">◀</button>
+    <button class="tbtn" data-k="right" aria-label="오른쪽으로 걷기">▶</button>
+  </div>
+  <div class="tgroup right">
+    <button class="tbtn" data-k="interact" aria-label="살펴보기">↑</button>
+    <button class="tbtn" data-k="jump"     aria-label="점프">✦</button>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/world.js"></script>
+<script src="js/actors.js"></script>
+<script src="js/player.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
