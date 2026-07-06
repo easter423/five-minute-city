@@ -1,7 +1,20 @@
-# 5분 도시 — five minute city
+# 5분 도시 — five minute city 🏙️
 
-하루가 5분에 흘러가는 픽셀 도시를 걷는 앰비언트 웹 토이입니다.
+하루가 5분에 흘러가는 픽셀 도시를 걷는 앰비언트 웹 토이입니다.  
 노을에서 시작해 밤 → 새벽 → 낮이 지나가고, 5분을 머물면 작은 인사가 나옵니다.
+
+
+## 기여자들
+
+<div align="center">
+
+| <a href="https://github.com/coitloz88"><img src="https://github.com/coitloz88.png" width="100"/></a> | <a href="https://github.com/easter423"><img src="https://github.com/easter423.png" width="100"/></a> | <a href="https://github.com/anthropics"><img src="https://github.com/anthropics.png" width="100"/></a> |
+| :---: | :---: | :---: |
+| [coitloz88](https://github.com/coitloz88) | [easter423](https://github.com/easter423) | [claude code](https://github.com/anthropics) |
+| 잡도리 전문가 | 간장종지 | 일꾼(a.k.a. 돌쇠) |
+
+</div>
+
 
 ## 조작
 
@@ -19,25 +32,12 @@
 있고 가끔 꽝이 나옵니다. 지붕 위와 인도에 고양이가 삽니다. 밤에는 전철과
 비행기가 지나갑니다. 터치 기기에서는 화면 버튼이 나타납니다.
 
+
 ## 로컬 실행
 
 빌드 과정이 없습니다. `index.html`을 브라우저로 열면 끝.
 (모듈 번들러 없이 일반 스크립트를 순서대로 로드하므로 `file://`로도 동작합니다.)
 
-## GitHub Pages 배포
-
-1. 새 저장소를 만들고 이 폴더 내용물을 루트에 푸시합니다.
-   ```bash
-   git init
-   git add .
-   git commit -m "five minute city"
-   git branch -M main
-   git remote add origin https://github.com/<유저명>/<저장소명>.git
-   git push -u origin main
-   ```
-2. 저장소 **Settings → Pages → Build and deployment**에서
-   Source를 **Deploy from a branch**, Branch를 **main / (root)** 로 설정합니다.
-3. 잠시 후 `https://<유저명>.github.io/<저장소명>/` 에서 열립니다.
 
 ## 구조
 
