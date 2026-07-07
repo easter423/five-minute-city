@@ -59,7 +59,7 @@ function updatePlayer(dt){
   if(player.dashCd>0) player.dashCd -= dt;
   if(player.dashV!==0){
     moveV = player.dashV;
-    player.dashV *= Math.pow(0.02, dt/DASH_TIME);   // 빠르게 감쇠
+    player.dashV *= Math.pow(0.3, dt/DASH_TIME);    // DASH_TIME 동안 서서히 감쇠
     if(Math.abs(player.dashV)<PLAYER_SPEED) player.dashV=0;
     // 잔상
     if(Math.random()<0.6)
