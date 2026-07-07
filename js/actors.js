@@ -93,7 +93,9 @@ function updateDrawBirds(ctx, pal, dt){
 /* ---------- 지붕 고양이 (앞 레이어 옥상, 클릭으로 인사) ---------- */
 const roofCat = { active:false, b:null, x:0, dir:1, state:'walk', t:0, wait:8 };
 function roofCatRespawn(){
-  const bs = FRONT.buildings.filter(b=>b.w>=34);
+  let bs = FRONT.buildings.filter(b=>b.w>=34);
+  if(!bs.length) bs = FRONT.buildings;   // 넓은 건물이 없으면 아무 건물이나
+  if(!bs.length) return;                 // 건물 자체가 없으면 리스폰 보류
   roofCat.b = bs[(Math.random()*bs.length)|0];
   roofCat.x = 4 + Math.random()*(roofCat.b.w-12);
   roofCat.dir = Math.random()<.5?-1:1;
