@@ -18,6 +18,8 @@
   <span class="stat">✦ <b id="wishcount">0</b></span>
   <span class="stat">☕ <b id="cancount">0</b></span>
   <span class="stat">🐟 <b id="fishcount">0</b></span>
+  <span class="stat">🍢 <b id="odengcount">0</b></span>
+  <span class="stat">🪙 <b id="coincount">0</b></span>
   <button class="stat-btn" id="collBtn" aria-label="수집 보기">✧ 수집</button>
 </div>
 <div class="hud" id="hint"></div>
@@ -66,6 +68,18 @@
   </div>
 </div>
 
+<!-- 오뎅바 메뉴 오버레이 -->
+<div class="overlay" id="odengOv">
+  <div class="panel">
+    <div class="panel-head"><span>밤의 오뎅바</span><button class="x" data-close="odengOv">✕</button></div>
+    <div id="odengMenuBody" class="coll"></div>
+    <div class="panel-foot">
+      <span class="muted">국물은 언제나 서비스</span>
+      <button id="odengStartBtn" class="wide">🍢 장사 시작 (90초)</button>
+    </div>
+  </div>
+</div>
+
 <!-- 수집 패널 -->
 <div class="overlay" id="collOv">
   <div class="panel">
@@ -80,6 +94,8 @@
 <script src="js/board.js"></script>
 <script src="js/stars.js"></script>
 <script src="js/stall.js"></script>
+<script src="js/odeng.js"></script>
+<script src="js/delivery.js"></script>
 <script src="js/actors.js"></script>
 <script src="js/player.js"></script>
 <script src="js/audio.js"></script>

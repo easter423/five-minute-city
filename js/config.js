@@ -16,7 +16,9 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* 랜드마크 월드 좌표 (거리 곳곳에 하나씩) */
 const LM = {
   board:  120,     // 게시판
+  scooter: 560,    // 배달 스쿠터 (배달 알바 시작점)
   stall:  1040,    // 붕어빵 포장마차 (밤에만 열림)
+  odeng:  1450,    // 오뎅 포장마차 (밤에만 열림)
 };
 const STORE_KEY = 'fmc.notes.v1';   // 플레이어가 남긴 쪽지 저장
 
@@ -33,9 +35,12 @@ const GS = {
   rain: false,
   wishes: 0, cans: 0,
   fish: 0,                 // 구운 붕어빵 수
+  odengSold: 0,            // 오뎅바에서 받은 손님 수
+  deliveries: 0,           // 완료한 배달 수
+  coins: 0,                // 알바로 모은 돈(원)
   constellations: [],      // 완성한 별자리 이름들
   readNotes: 0,            // 읽은 쪽지 수
-  mode: 'roam',            // roam | stall | sky | board | writing
+  mode: 'roam',            // roam | stall | odeng | sky | board | writing (배달은 roam 중 진행)
 };
 
 /* ---------- seeded rng ---------- */

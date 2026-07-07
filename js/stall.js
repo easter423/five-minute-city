@@ -85,53 +85,55 @@ function updateStall(dt){
   }
 }
 
-/* ---------- 포장마차 구조물 (밤에 등불 켜짐) ---------- */
+/* ---------- 포장마차 구조물 (밤에 등불 켜짐) ----------
+   작은 수레: 아래 초록 몸통 + 위 노란 천막 */
 function drawStall(ctx, pal, now){
   const sx = worldToScreen(LM.stall)|0;
   if(sx<-50||sx>W+50) return;
   const gy = SIDEWALK_Y;
   const open = stallIsOpen(pal);
 
-  // 수레 몸통
-  ctx.fillStyle='#5a3a24';
-  ctx.fillRect(sx-22,gy-16,44,14);
-  ctx.fillStyle='#402816';
-  ctx.fillRect(sx-22,gy-16,44,2);
+  // 수레 몸통 (초록)
+  ctx.fillStyle='#2f7a4a';
+  ctx.fillRect(sx-16,gy-13,32,11);
+  ctx.fillStyle='#1e5432';
+  ctx.fillRect(sx-16,gy-13,32,2);
+  ctx.fillRect(sx-16,gy-4,32,2);
   // 바퀴
   ctx.fillStyle='rgba(20,16,30,.9)';
-  ctx.fillRect(sx-16,gy-2,4,3); ctx.fillRect(sx+12,gy-2,4,3);
+  ctx.fillRect(sx-11,gy-2,4,3); ctx.fillRect(sx+7,gy-2,4,3);
   // 천막 기둥
   ctx.fillStyle='#3a2a1a';
-  ctx.fillRect(sx-22,gy-40,2,24); ctx.fillRect(sx+20,gy-40,2,24);
-  // 천막 (빨강/흰 줄무늬)
+  ctx.fillRect(sx-16,gy-32,2,19); ctx.fillRect(sx+14,gy-32,2,19);
+  // 천막 (노랑 두 톤 줄무늬)
   for(let i=0;i<9;i++){
-    ctx.fillStyle = i%2 ? '#c94f4f' : '#e8dcc0';
-    ctx.fillRect(sx-22+i*5, gy-44, 5, 5);
+    ctx.fillStyle = i%2 ? '#f2c94c' : '#d9a832';
+    ctx.fillRect(sx-18+i*4, gy-36, 4, 5);
   }
-  ctx.fillStyle='#8a3a3a'; ctx.fillRect(sx-22,gy-40,44,1);
+  ctx.fillStyle='#a8791e'; ctx.fillRect(sx-18,gy-32,36,1);
   // 김 나는 냄비 / 철판
   ctx.fillStyle='#2a2233';
-  ctx.fillRect(sx-10,gy-20,20,4);
+  ctx.fillRect(sx-8,gy-16,16,3);
   if(open){
     // 등불
     ctx.fillStyle='#ffcf6b';
-    ctx.fillRect(sx-1,gy-38,2,3);
-    const g=ctx.createRadialGradient(sx,gy-30,2,sx,gy-30,26);
+    ctx.fillRect(sx-1,gy-30,2,3);
+    const g=ctx.createRadialGradient(sx,gy-24,2,sx,gy-24,20);
     g.addColorStop(0,'rgba(255,200,110,.28)'); g.addColorStop(1,'rgba(255,200,110,0)');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,gy-30,26,0,7); ctx.fill();
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,gy-24,20,0,7); ctx.fill();
     // 모락모락 김
     ctx.fillStyle='rgba(255,255,255,.28)';
     for(let i=0;i<3;i++){
-      const yy = gy-22 - ((now/220+i*40)%20);
-      ctx.fillRect((sx-6+i*6)|0, yy|0, 2,2);
+      const yy = gy-18 - ((now/220+i*40)%16);
+      ctx.fillRect((sx-5+i*5)|0, yy|0, 2,2);
     }
     // 간판 글자 대신 붕어빵 아이콘
     ctx.fillStyle='#e8b45a';
-    ctx.fillRect(sx-16,gy-13,5,3); ctx.fillRect(sx-15,gy-14,3,1);
+    ctx.fillRect(sx-12,gy-10,5,3); ctx.fillRect(sx-11,gy-11,3,1);
   } else {
     // 닫힘: 천막 내려짐 표현
     ctx.fillStyle='rgba(30,26,40,.6)';
-    ctx.fillRect(sx-22,gy-16,44,14);
+    ctx.fillRect(sx-18,gy-13,36,11);
   }
 }
 
