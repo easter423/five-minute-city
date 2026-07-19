@@ -1,34 +1,44 @@
 'use strict';
 /* ============================================================
-   5분 도시 — world.js
-   스카이라인 · 하늘 · 거리(인도/차도) · 거리 소품
+   5분 도시 — world.js   (로드 순서: config → palette → world → …)
+   스카이라인 · 하늘 · 거리(인도/차도) · 거리 소품 · named building
    * 이미지 에셋으로 교체하려면 drawBuildingLayer() 대신
      ctx.drawImage(img, -off, ...)를 랩어라운드로 두 번 그리면 됨.
    ============================================================ */
 
 /* ---------- 건물 레이어 ----------
    f: 시차 계수 (1.0 = 거리와 같은 깊이) */
+
+/* 건물 한 채(지붕 디테일 + 창문)를 만든다. door/named 는 호출부가 채운다. */
+function buildingBody(r, x, w, h, o){
+  const b = { x, w, h, wins:[], roof:[], boost:0, door:null, named:null };
+  // 지붕 디테일
+  if(o.detail && r()<.75){
+    const kind = r();
+    if(kind<.4)      b.roof.push({t:'ant', x:(w*(.2+r()*.6))|0, h:(4+r()*8)|0});
+    else if(kind<.7) b.roof.push({t:'box', x:(w*(.15+r()*.5))|0, w:(5+r()*6)|0, h:(3+r()*3)|0});
+    else             b.roof.push({t:'tank',x:(w*(.2+r()*.5))|0, w:(6+r()*3)|0, h:(5+r()*3)|0});
+  }
+  // 창문
+  if(o.windows){
+    const cw=2, ch=3, gx=4, gy=6;
+    for(let wy=5; wy<h-6; wy+=gy)
+      for(let wx=3; wx<w-4; wx+=gx)
+        if(r()<.85) b.wins.push({x:wx,y:wy,w:cw,h:ch,r:r(),fl:r()});
+  }
+  return b;
+}
+
 function makeBuildingLayer(seed, o){
-  const r = rng(seed), buildings = [];
+  const r = rng(seed);
+  if(o.named && o.named.length) return makeNamedFrontLayer(r, o);
+
+  const buildings = [];
   let x = 0;
   while(x < o.loop){
     const w = (o.wMin + r()*(o.wMax-o.wMin)) | 0;
     const h = (o.hMin + r()*(o.hMax-o.hMin)) | 0;
-    const b = { x, w, h, wins:[], roof:[], boost:0, door:null };
-    // 지붕 디테일
-    if(o.detail && r()<.75){
-      const kind = r();
-      if(kind<.4)      b.roof.push({t:'ant', x:(w*(.2+r()*.6))|0, h:(4+r()*8)|0});
-      else if(kind<.7) b.roof.push({t:'box', x:(w*(.15+r()*.5))|0, w:(5+r()*6)|0, h:(3+r()*3)|0});
-      else             b.roof.push({t:'tank',x:(w*(.2+r()*.5))|0, w:(6+r()*3)|0, h:(5+r()*3)|0});
-    }
-    // 창문
-    if(o.windows){
-      const cw=2, ch=3, gx=4, gy=6;
-      for(let wy=5; wy<h-6; wy+=gy)
-        for(let wx=3; wx<w-4; wx+=gx)
-          if(r()<.85) b.wins.push({x:wx,y:wy,w:cw,h:ch,r:r(),fl:r()});
-    }
+    const b = buildingBody(r, x, w, h, o);
     // 현관문 (앞 레이어만) — ↑ 로 건물 불을 켜고 끔
     if(o.doors && w>=22){
       b.door = { x:(w*(.25+r()*.5))|0, w:5, h:9 };
@@ -39,10 +49,57 @@ function makeBuildingLayer(seed, o){
   return { buildings, f:o.f, loop:o.loop, idx:o.idx };
 }
 
+/* named building 고정 배치 + 사이 공백만 절차 생성으로 채운 front 레이어.
+   named building: 지정 x(문 중앙)/w, 높이는 40~72 범위에서 다양하게,
+   문 폭 5(건물 중앙), 간판(label)은 상단에. seed 는 그대로 유지. */
+const NAMED_DOOR_W = 5;
+const NAMED_HEIGHTS = { cafe:64, korean:52, chinese:46, japanese:46,
+                        western:56, cinema:60, boardgame:54, office:50 };
+function namedHeight(id){
+  const h = NAMED_HEIGHTS[id];
+  return clamp(h==null ? 52 : h, 40, 72);
+}
+
+function makeNamedFrontLayer(r, o){
+  const named = o.named.slice().sort((a,b)=>a.x-b.x);
+  const buildings = [];
+  let cursor = 0;
+
+  const fillGap = (from, to)=>{
+    let x = from;
+    while(x < to-8){
+      let w = (o.wMin + r()*(o.wMax-o.wMin)) | 0;
+      if(x+w > to) w = to-x;            // 남은 공백에 맞게 마지막 폭 축소
+      if(w < 14) break;                 // 너무 좁으면 공백으로 남김
+      const h = (o.hMin + r()*(o.hMax-o.hMin)) | 0;
+      const b = buildingBody(r, x, w, h, o);
+      if(o.doors && w>=22) b.door = { x:(w*(.25+r()*.5))|0, w:5, h:9 };
+      buildings.push(b);
+      x += w + (r()<.3 ? (2+r()*8)|0 : 0);
+    }
+  };
+
+  for(const nb of named){
+    const w = nb.w|0;
+    const left = Math.round(nb.x - w/2);
+    fillGap(cursor, left);
+    const h = namedHeight(nb.id);
+    const b = buildingBody(r, left, w, h, o);
+    b.door = { x: Math.round((w - NAMED_DOOR_W)/2), w:NAMED_DOOR_W, h:9 };
+    b.named = { id:nb.id, label:nb.label };
+    buildings.push(b);
+    cursor = left + w;
+  }
+  fillGap(cursor, o.loop);
+
+  return { buildings, f:o.f, loop:o.loop, idx:o.idx };
+}
+
 const layers = [
   makeBuildingLayer(11,{loop:960,  f:.15, idx:0, wMin:26,wMax:60,hMin:60,hMax:130,windows:false,detail:false}),
   makeBuildingLayer(23,{loop:960,  f:.4,  idx:1, wMin:24,wMax:52,hMin:46,hMax:100,windows:true, detail:true }),
-  makeBuildingLayer(47,{loop:WLOOP,f:1.0, idx:2, wMin:28,wMax:64,hMin:34,hMax:80, windows:true, detail:true, doors:true}),
+  makeBuildingLayer(47,{loop:WLOOP,f:1.0, idx:2, wMin:28,wMax:64,hMin:34,hMax:80, windows:true, detail:true, doors:true,
+                        named:(typeof CITY_BUILDINGS!=='undefined'?CITY_BUILDINGS:null)}),
 ];
 const FRONT = layers[2];
 
@@ -73,6 +130,16 @@ function lampIsOn(p, pal){ return p.on===null ? pal.night>.45 : p.on; }
 /* ---------- 상호작용 대상 찾기 ----------
    반환: {type:'prop'|'door', obj, wx} 또는 null */
 function findInteract(px){
+  // named building 문을 최우선 매칭 (임베드에서 건물 입장 트리거)
+  let namedBest=null, namedD=9;
+  for(const b of FRONT.buildings){
+    if(!b.door || !b.named) continue;
+    const dx = b.x + b.door.x + b.door.w/2;
+    const d = Math.abs(wrapDelta(dx - px, WLOOP));
+    if(d < namedD){ namedBest={type:'door',obj:b,wx:dx}; namedD=d; }
+  }
+  if(namedBest) return namedBest;
+
   let best=null, bestD=13;
   for(const p of props){
     const d = Math.abs(wrapDelta(p.x - px, WLOOP));
@@ -80,7 +147,7 @@ function findInteract(px){
     if(d < Math.min(bestD, reach)){ best={type:'prop',obj:p,wx:p.x}; bestD=d; }
   }
   for(const b of FRONT.buildings){
-    if(!b.door) continue;
+    if(!b.door || b.named) continue;
     const dx = b.x + b.door.x + b.door.w/2;
     const d = Math.abs(wrapDelta(dx - px, WLOOP));
     if(d < Math.min(bestD, 8)){ best={type:'door',obj:b,wx:dx}; bestD=d; }
@@ -170,8 +237,29 @@ function drawBuildingLayer(ctx, L, pal){
         ctx.fillStyle='rgba(255,255,255,.25)';
         ctx.fillRect((base+b.door.x+b.door.w-2)|0, HORIZON-5, 1, 1); // 손잡이
       }
+      if(b.named) drawBuildingSign(ctx, base, y, b, pal);
     }
   }
+}
+
+/* named building 간판 — 건물 상단에 라벨을 픽셀 폰트로 */
+function drawBuildingSign(ctx, base, y, b, pal){
+  const cx = (base + b.w/2)|0;
+  ctx.font = "7px 'Mulmaru Mono', monospace";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  const label = b.named.label;
+  const tw = Math.ceil(ctx.measureText(label).width);
+  const plateW = tw + 6, plateX = cx - (plateW>>1), plateY = y + 2;
+  // 간판 판
+  ctx.fillStyle = 'rgba(10,12,28,.82)';
+  ctx.fillRect(plateX, plateY, plateW, 10);
+  ctx.fillStyle = 'rgba(255,255,255,.14)';
+  ctx.fillRect(plateX, plateY, plateW, 1);
+  // 라벨 (밤엔 따뜻한 색, 낮엔 밝은 미색)
+  ctx.fillStyle = pal.night>.4 ? '#ffd27f' : '#f2eee4';
+  ctx.fillText(label, cx, plateY + 8);
+  ctx.textAlign = 'left';
 }
 
 function drawGround(ctx, pal){

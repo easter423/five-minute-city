@@ -1,8 +1,9 @@
 'use strict';
 /* ============================================================
-   5분 도시 — player.js
+   5분 도시 — player.js   (로드 순서: … → actors → player → audio → main)
    방향키 캐릭터: ←→ 걷기 · SPACE 점프 · ↑/Z 살펴보기
    비가 오면 우산을 씀. 벤치에 앉으면 시간이 빨리 흐름.
+   drawFigure()는 원격 플레이어 렌더에도 재사용된다(colors 만 교체).
    ============================================================ */
 
 const player = {
@@ -16,7 +17,22 @@ const player = {
   dashV: 0,          // 대시 잔여 속도
   dashCd: 0,         // 대시 쿨다운
   dashGhost: [],     // 잔상 (월드x, dir, life)
+  colors: {          // 기본 캐릭터 색 (임베드에서 boot opts.playerColors 로 주입)
+    hood:'#e6b455', pants:'#3a4666', skin:'#f2c9a0', hair:'#2a2438',
+  },
 };
+
+/* 임베드 boot 에서 캐릭터 색 주입 (누락 키는 기본색 유지) */
+function setPlayerColors(c){
+  if(!c) return;
+  const cur = player.colors;
+  player.colors = {
+    hood:  c.hood  || cur.hood,
+    pants: c.pants || cur.pants,
+    skin:  c.skin  || cur.skin,
+    hair:  c.hair  || cur.hair,
+  };
+}
 
 const input = { left:false, right:false };
 
@@ -87,12 +103,41 @@ function updatePlayer(dt){
 
 /* ---------- 스프라이트 ----------
    렉트 조합 약 7x14px. 머스터드 후드티가 밤 팔레트에 잘 뜬다. */
-const C_HOOD='#e6b455', C_PANTS='#3a4666', C_SKIN='#f2c9a0',
-      C_HAIR='#2a2438', C_SHOE='#1c2036';
+const C_SHOE='#1c2036';
+
+/* 서 있는/걷는 캐릭터 한 명을 그린다 — 내 캐릭터와 원격 플레이어 공용.
+   sx: 화면 x, fy: 발 위치 y, dir: -1|1, walking: bool,
+   anim: 걷기 위상, colors: {hood,pants,skin,hair}, air: 점프 중 여부 */
+function drawFigure(ctx, sx, fy, dir, walking, anim, colors, air){
+  const C = colors || player.colors;
+  const d = dir;
+  const step = walking ? (Math.sin(anim)>0?1:-1) : 0;
+
+  /* 다리 */
+  ctx.fillStyle=C.pants;
+  if(air){ ctx.fillRect(sx-2,fy-5,2,4); ctx.fillRect(sx+1,fy-4,2,3); }
+  else if(step>=0){ ctx.fillRect(sx-2,fy-5,2,5); ctx.fillRect(sx+1,fy-5,2,5); }
+  else{ ctx.fillRect(sx-3,fy-5,2,5); ctx.fillRect(sx+2,fy-5,2,5); }
+  ctx.fillStyle=C_SHOE;
+  if(air){ ctx.fillRect(sx-3,fy-2,3,1); ctx.fillRect(sx+1,fy-1,3,1); }
+  else if(step>=0){ ctx.fillRect(sx-3,fy-1,3,1); ctx.fillRect(sx+1,fy-1,3,1); }
+  else{ ctx.fillRect(sx-4,fy-1,3,1); ctx.fillRect(sx+2,fy-1,3,1); }
+
+  /* 몸통(후드) + 팔 */
+  ctx.fillStyle=C.hood;
+  ctx.fillRect(sx-3,fy-11,7,6);
+  ctx.fillRect(sx+(d>0?3:-4),fy-10,2,4);              // 앞팔
+  /* 머리 */
+  ctx.fillStyle=C.skin; ctx.fillRect(sx-2,fy-14,5,3);
+  ctx.fillStyle=C.hair; ctx.fillRect(sx-3,fy-16,7,3);
+  ctx.fillRect(sx+(d>0?-3:2),fy-14,2,2);              // 옆머리
+  /* 눈 */
+  ctx.fillStyle=C.hair; ctx.fillRect(sx+(d>0?1:-1)+1,fy-13,1,1);
+}
 
 function drawPlayer(ctx, pal, now){
   const sx = (worldToScreen(player.x))|0;
-  const d = player.dir;
+  const C = player.colors;
 
   /* 대시 잔상 */
   for(const g of player.dashGhost){
@@ -105,10 +150,10 @@ function drawPlayer(ctx, pal, now){
   if(player.sitting){
     const bx = worldToScreen(player.sitting.x)|0, by = SIDEWALK_Y;
     /* 벤치에 앉은 포즈 */
-    ctx.fillStyle=C_HAIR;  ctx.fillRect(bx-2,by-16,5,2);
-    ctx.fillStyle=C_SKIN;  ctx.fillRect(bx-2,by-14,5,3);
-    ctx.fillStyle=C_HOOD;  ctx.fillRect(bx-3,by-11,7,5);
-    ctx.fillStyle=C_PANTS; ctx.fillRect(bx-3,by-6,7,2);
+    ctx.fillStyle=C.hair;  ctx.fillRect(bx-2,by-16,5,2);
+    ctx.fillStyle=C.skin;  ctx.fillRect(bx-2,by-14,5,3);
+    ctx.fillStyle=C.hood;  ctx.fillRect(bx-3,by-11,7,5);
+    ctx.fillStyle=C.pants; ctx.fillRect(bx-3,by-6,7,2);
     ctx.fillRect(bx-3,by-4,2,3); ctx.fillRect(bx+2,by-4,2,3);
     ctx.fillStyle=C_SHOE;  ctx.fillRect(bx-4,by-1,3,1); ctx.fillRect(bx+2,by-1,3,1);
     if(GS.rain) drawUmbrella(ctx,bx,by-18);
@@ -116,29 +161,7 @@ function drawPlayer(ctx, pal, now){
   }
 
   const fy = (SIDEWALK_Y + player.y)|0;   // 발 위치
-  const step = player.walking ? (Math.sin(player.anim)>0?1:-1) : 0;
-  const air = player.y<0;
-
-  /* 다리 */
-  ctx.fillStyle=C_PANTS;
-  if(air){ ctx.fillRect(sx-2,fy-5,2,4); ctx.fillRect(sx+1,fy-4,2,3); }
-  else if(step>=0){ ctx.fillRect(sx-2,fy-5,2,5); ctx.fillRect(sx+1,fy-5,2,5); }
-  else{ ctx.fillRect(sx-3,fy-5,2,5); ctx.fillRect(sx+2,fy-5,2,5); }
-  ctx.fillStyle=C_SHOE;
-  if(air){ ctx.fillRect(sx-3,fy-2,3,1); ctx.fillRect(sx+1,fy-1,3,1); }
-  else if(step>=0){ ctx.fillRect(sx-3,fy-1,3,1); ctx.fillRect(sx+1,fy-1,3,1); }
-  else{ ctx.fillRect(sx-4,fy-1,3,1); ctx.fillRect(sx+2,fy-1,3,1); }
-
-  /* 몸통(후드) + 팔 */
-  ctx.fillStyle=C_HOOD;
-  ctx.fillRect(sx-3,fy-11,7,6);
-  ctx.fillRect(sx+(d>0?3:-4),fy-10,2,4);              // 앞팔
-  /* 머리 */
-  ctx.fillStyle=C_SKIN; ctx.fillRect(sx-2,fy-14,5,3);
-  ctx.fillStyle=C_HAIR; ctx.fillRect(sx-3,fy-16,7,3);
-  ctx.fillRect(sx+(d>0?-3:2),fy-14,2,2);              // 옆머리
-  /* 눈 */
-  ctx.fillStyle=C_HAIR; ctx.fillRect(sx+(d>0?1:-1)+1,fy-13,1,1);
+  drawFigure(ctx, sx, fy, player.dir, player.walking, player.anim, C, player.y<0);
 
   if(GS.rain) drawUmbrella(ctx,sx,fy-18);
 }

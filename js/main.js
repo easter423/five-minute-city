@@ -1,18 +1,42 @@
 'use strict';
 /* ============================================================
-   5분 도시 — main.js
+   5분 도시 — main.js   (로드 순서 맨 끝: … → audio → [embed] → main)
    부트 · 입력(대시 포함) · 상호작용/모드 라우팅 · 오버레이 · HUD · 루프
+   ------------------------------------------------------------
+   부트 사이드이펙트는 전부 fmcStart() 안에 있다.
+   - 독립 실행(index.html): 파일 끝에서 자동으로 fmcStart() 호출.
+   - 임베드(window.__FMC_EMBED__): 자동 부트 안 함. FMC.boot 가 DOM 주입 후 호출.
+   FMC 임베드 훅: fmcConfigure / fmcPause / fmcResume / fmcDestroy /
+   fmcSetRemotePlayers / fmcShowBubble / fmcSetSelfName / fmcGetSelfState.
    ============================================================ */
 
-const cv = document.getElementById('scene');
-const ctx = cv.getContext('2d');
-
-/* ---------- HUD refs ---------- */
+/* ---------- 캔버스 / HUD refs (fmcStart 에서 획득) ---------- */
+let cv=null, ctx=null;
 const $ = id => document.getElementById(id);
-const elClock=$('clock'), elPhase=$('phase'),
-      elWish=$('wishcount'), elCan=$('cancount'), elFish=$('fishcount'),
-      elOdeng=$('odengcount'), elCoin=$('coincount'),
-      elHint=$('hint'), elToast=$('toast');
+let elClock, elPhase, elWish, elCan, elFish, elOdeng, elCoin, elHint, elToast;
+function grabRefs(){
+  cv=$('scene'); ctx=cv.getContext('2d');
+  elClock=$('clock'); elPhase=$('phase');
+  elWish=$('wishcount'); elCan=$('cancount'); elFish=$('fishcount');
+  elOdeng=$('odengcount'); elCoin=$('coincount');
+  elHint=$('hint'); elToast=$('toast');
+}
+
+/* ---------- 임베드 상태 ---------- */
+let fmcOpts = {};                 // boot opts (독립 실행은 {})
+let fmcPaused = false;            // pause 중이면 입력 무시 + 루프 정지
+let rafId = 0;                    // requestAnimationFrame 핸들
+const fmcListeners = [];          // destroy 시 해제할 리스너
+const fmcTimers = [];             // destroy 시 해제할 타이머
+function reg(target, type, fn){ target.addEventListener(type, fn); fmcListeners.push({target,type,fn}); }
+
+/* 원격 플레이어 / 이름표 / 말풍선 (임베드 멀티플레이) */
+let remotePlayers = [];           // [{id,name,x,dir,walking,colors}]
+let selfName = '';
+const bubbles = new Map();        // id('self'|remoteId) → {text, until}
+
+/* boot opts 주입 (embed.js 에서 fmcStart 직전에 호출) */
+function fmcConfigure(opts){ fmcOpts = opts || {}; }
 
 function refreshStats(){
   elWish.textContent=GS.wishes; elCan.textContent=GS.cans; elFish.textContent=GS.fish;
@@ -21,10 +45,10 @@ function refreshStats(){
 
 /* ---------- 리사이즈 (cover) ---------- */
 function fit(){
+  if(!cv) return;
   const s=Math.max(innerWidth/W, innerHeight/H);
   cv.style.width=W*s+'px'; cv.style.height=H*s+'px';
 }
-addEventListener('resize',fit); fit();
 
 /* ---------- 토스트 · 힌트 ---------- */
 let toastTimer=null;
@@ -52,7 +76,6 @@ function cycleHint(){
   setTimeout(()=>{ elHint.textContent=HINTS[hintIdx++%HINTS.length];
     elHint.style.opacity=.85; },1300);
 }
-setTimeout(cycleHint,2200); setInterval(cycleHint,13000);
 
 /* ============================================================
    오버레이 관리
@@ -60,13 +83,6 @@ setTimeout(cycleHint,2200); setInterval(cycleHint,13000);
 function openOverlay(id){ $(id).classList.add('open'); }
 function closeOverlay(id){ $(id).classList.remove('open'); }
 function anyOverlayOpen(){ return document.querySelector('.overlay.open')!==null; }
-
-document.querySelectorAll('[data-close]').forEach(b=>
-  b.addEventListener('click',()=>{
-    closeOverlay(b.dataset.close);
-    // 오버레이가 모두 닫히면 게임 조작(roam)으로 복귀 — 안 하면 캐릭터가 멈춤
-    if(!anyOverlayOpen() && (GS.mode==='board'||GS.mode==='writing')) GS.mode='roam';
-  }));
 
 /* ---------- 게시판 읽기 ---------- */
 function openBoard(){
@@ -77,21 +93,15 @@ function openBoard(){
   openOverlay('boardOv');
 }
 function renderNote(){
-  const n=boardNotes[boardIndex] || {t:'—',mine:false};
+  const n=boardNotes[boardIndex] || {t:'—',mine:false,who:null};
   const view=$('noteView');
   view.className='note'+(n.mine?' mine':'');
+  const who = n.mine ? '나' : (n.who || '이웃');
   view.innerHTML = escapeHtml(n.t) +
-    `<span class="who">— ${n.mine?'나':'이웃'}</span>`;
+    `<span class="who">— ${escapeHtml(who)}</span>`;
   $('notePos').textContent=`${boardIndex+1} / ${boardNotes.length}`;
   if(!n._seen){ n._seen=true; GS.readNotes++; }
 }
-$('notePrev').addEventListener('click',()=>{
-  boardIndex=(boardIndex-1+boardNotes.length)%boardNotes.length; renderNote(); sfxBlip(500);
-});
-$('noteNext').addEventListener('click',()=>{
-  boardIndex=(boardIndex+1)%boardNotes.length; renderNote(); sfxBlip(560);
-});
-$('writeBtn').addEventListener('click',()=>{ closeOverlay('boardOv'); openWrite(); });
 
 /* ---------- 쪽지 작성 ---------- */
 function openWrite(){
@@ -100,14 +110,6 @@ function openWrite(){
   openOverlay('writeOv');
   setTimeout(()=>$('noteInput').focus(),50);
 }
-$('noteInput').addEventListener('input',e=>{
-  $('charCount').textContent=`${e.target.value.length} / 60`;
-});
-$('pinBtn').addEventListener('click',()=>{
-  const v=$('noteInput').value;
-  if(v.trim()){ addPlayerNote(v); sfxBlip(880); toast('게시판에 붙였어요 ✎'); }
-  closeOverlay('writeOv'); openBoard();
-});
 
 /* ---------- 수집 패널 ---------- */
 function openColl(){
@@ -130,9 +132,8 @@ function openColl(){
     `<h4>내가 남긴 쪽지</h4>${mine}`;
   openOverlay('collOv');
 }
-$('collBtn').addEventListener('click',openColl);
 
-function escapeHtml(s){ return s.replace(/[&<>"]/g,c=>
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ============================================================
@@ -184,6 +185,10 @@ function tryInteract(){
     return;
   }
   if(hit.type==='door'){
+    // named building 문: 임베드면 건물 입장 트리거, 독립 실행은 기존 불 토글로 폴백
+    if(hit.obj.named && window.__FMC_EMBED__ && typeof fmcOpts.onEnterBuilding==='function'){
+      fmcOpts.onEnterBuilding(hit.obj.named.id); sfxBlip(740); return;
+    }
     hit.obj.boost = hit.obj.boost?0:1;
     sfxBlip(hit.obj.boost?740:490);
     return;
@@ -226,7 +231,8 @@ function actionJump(){           // SPACE
 let lastTap={left:0, right:0};
 const DOUBLE_MS=260;
 
-addEventListener('keydown',e=>{
+function onKeyDown(e){
+  if(fmcPaused) return;            // pause 중 입력 무시
   // 오버레이(작성 등)가 열려 있으면 게임 조작 차단 (ESC/닫기만)
   if(anyOverlayOpen()){
     if(e.code==='Escape'){
@@ -271,11 +277,12 @@ addEventListener('keydown',e=>{
     case 'Digit3': jumpTime(0.5);  break;
     case 'Digit4': jumpTime(0.75); break;
   }
-});
-addEventListener('keyup',e=>{
+}
+function onKeyUp(e){
+  if(fmcPaused) return;
   if(e.code==='ArrowLeft')  input.left=false;
   if(e.code==='ArrowRight') input.right=false;
-});
+}
 function jumpTime(target){
   GS.tOff=(target-(GS.dayTime/DAY)%1+2)%1; sfxBlip(660);
 }
@@ -283,30 +290,33 @@ function jumpTime(target){
 /* ============================================================
    터치 컨트롤
    ============================================================ */
-if(matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window)
-  document.body.classList.add('is-touch');
-document.querySelectorAll('.tbtn').forEach(b=>{
-  const k=b.dataset.k;
-  const down=e=>{ e.preventDefault();
-    if(k==='left'){ const n=performance.now();
-      if(n-lastTap.left<DOUBLE_MS){ player.dir=-1; playerDash(); } lastTap.left=n;
-      input.left=true; }
-    else if(k==='right'){ const n=performance.now();
-      if(n-lastTap.right<DOUBLE_MS){ player.dir=1; playerDash(); } lastTap.right=n;
-      input.right=true; }
-    else if(k==='dash') playerDash();
-    else if(k==='interact') actionPrimary();
-    else if(k==='jump') actionJump();
-  };
-  const up=e=>{ e.preventDefault();
-    if(k==='left')input.left=false;
-    if(k==='right')input.right=false;
-  };
-  b.addEventListener('pointerdown',down);
-  b.addEventListener('pointerup',up);
-  b.addEventListener('pointercancel',up);
-  b.addEventListener('pointerleave',up);
-});
+function wireTouch(){
+  if(matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window)
+    document.body.classList.add('is-touch');
+  document.querySelectorAll('.tbtn').forEach(b=>{
+    const k=b.dataset.k;
+    const down=e=>{ e.preventDefault();
+      if(fmcPaused) return;
+      if(k==='left'){ const n=performance.now();
+        if(n-lastTap.left<DOUBLE_MS){ player.dir=-1; playerDash(); } lastTap.left=n;
+        input.left=true; }
+      else if(k==='right'){ const n=performance.now();
+        if(n-lastTap.right<DOUBLE_MS){ player.dir=1; playerDash(); } lastTap.right=n;
+        input.right=true; }
+      else if(k==='dash') playerDash();
+      else if(k==='interact') actionPrimary();
+      else if(k==='jump') actionJump();
+    };
+    const up=e=>{ e.preventDefault();
+      if(k==='left')input.left=false;
+      if(k==='right')input.right=false;
+    };
+    reg(b,'pointerdown',down);
+    reg(b,'pointerup',up);
+    reg(b,'pointercancel',up);
+    reg(b,'pointerleave',up);
+  });
+}
 
 /* ============================================================
    캔버스 클릭: 별자리(모드) · 밤하늘 소원 · 지붕 고양이
@@ -315,7 +325,8 @@ function toScene(e){
   const r=cv.getBoundingClientRect();
   return { x:(e.clientX-r.left)/r.width*W, y:(e.clientY-r.top)/r.height*H };
 }
-cv.addEventListener('pointerdown',e=>{
+function onCanvasPointer(e){
+  if(fmcPaused) return;
   if(anyOverlayOpen()) return;
   const p=toScene(e);
 
@@ -345,7 +356,7 @@ cv.addEventListener('pointerdown',e=>{
     spawnShot(p.x,p.y);
     GS.wishes++; refreshStats(); sfxBlip(1200);
   }
-});
+}
 
 /* ---------- 비 파티클 ---------- */
 const drops=[];
@@ -364,10 +375,7 @@ function drawRain(dt){
 /* ============================================================
    메인 루프
    ============================================================ */
-GS.pal = palette(GS.tOff);
-loadPlayerNotes();
-rebuildBoard();
-let last=performance.now(), dayToastDone=false;
+let last=0, dayToastDone=false;
 
 function frame(now){
   const dt=Math.min((now-last)/1000,.05); last=now;
@@ -420,7 +428,9 @@ function frame(now){
   drawScooter(ctx,pal,now);
   drawProps(ctx,pal,now);
   updateDrawStreetCat(ctx,pal,now,dt);
+  drawRemotePlayers(ctx, now);        // 원격 플레이어 (내 캐릭터 직전)
   drawPlayer(ctx,pal,now);
+  drawSelfOverlay(ctx, now);          // 내 이름표 + 말풍선
   updateDrawHearts(ctx,dt);
   drawDeliveryWorld(ctx,pal,now);
 
@@ -465,6 +475,191 @@ function frame(now){
   v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,10,.35)');
   ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
 
-  requestAnimationFrame(frame);
+  pollCounters();                    // 임베드: 수집 카운터 변경 통지/저장
+  rafId = requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+
+/* ============================================================
+   원격 플레이어 / 이름표 / 말풍선  (임베드 멀티플레이 렌더)
+   ============================================================ */
+function drawRemotePlayers(ctx, now){
+  if(!remotePlayers.length) return;
+  for(const rp of remotePlayers){
+    const sx = worldToScreen(rp.x)|0;
+    if(sx<-20 || sx>W+20) continue;
+    const anim = rp.walking ? now*0.01 : 0;
+    drawFigure(ctx, sx, SIDEWALK_Y, rp.dir||1, !!rp.walking, anim, rp.colors, false);
+    if(rp.name) drawNameTag(ctx, sx, SIDEWALK_Y-18, rp.name);
+    const b = bubbles.get(rp.id);
+    if(b && b.until>now) drawSpeechBubble(ctx, sx, SIDEWALK_Y-24, b.text);
+  }
+}
+function drawSelfOverlay(ctx, now){
+  const sx = worldToScreen(player.x)|0;
+  const fy = SIDEWALK_Y + player.y;
+  if(selfName) drawNameTag(ctx, sx, fy-18, selfName);
+  const b = bubbles.get('self');
+  if(b && b.until>now) drawSpeechBubble(ctx, sx, fy-24, b.text);
+}
+function drawNameTag(ctx, sx, y, name){
+  ctx.font="6px 'Mulmaru Mono', monospace";
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  const tw = Math.ceil(ctx.measureText(name).width);
+  ctx.fillStyle='rgba(10,12,28,.55)';
+  ctx.fillRect((sx-tw/2-2)|0, (y-6)|0, (tw+4)|0, 8);
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  ctx.fillText(name, sx, y);
+  ctx.textAlign='left';
+}
+function drawSpeechBubble(ctx, sx, y, text){
+  ctx.font="6px 'Mulmaru Mono', monospace";
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  const tw = Math.min(Math.ceil(ctx.measureText(text).width), 150);
+  const bw = tw+8, bh = 12;
+  const bx = (sx-bw/2)|0, by = (y-bh)|0;
+  ctx.fillStyle='rgba(255,255,255,.95)';
+  ctx.fillRect(bx,by,bw,bh);
+  ctx.fillStyle='rgba(10,12,28,.45)';           // 픽셀 테두리
+  ctx.fillRect(bx,by,bw,1); ctx.fillRect(bx,by+bh-1,bw,1);
+  ctx.fillRect(bx,by,1,bh); ctx.fillRect(bx+bw-1,by,1,bh);
+  ctx.fillStyle='rgba(255,255,255,.95)';        // 꼬리
+  ctx.fillRect(sx-1,by+bh,2,2);
+  ctx.fillStyle='#1a1e3c';
+  ctx.fillText(text, sx, by+8);
+  ctx.textAlign='left';
+}
+
+/* FMC 훅: 임베드 쪽이 호출 (embed.js 경유) */
+function fmcSetRemotePlayers(list){ remotePlayers = Array.isArray(list)?list:[]; }
+function fmcShowBubble(id, text){
+  bubbles.set(id, { text:String(text).slice(0,40), until: performance.now()+4500 });
+}
+function fmcSetSelfName(name){ selfName = String(name||''); }
+function fmcGetSelfState(){ return { x:player.x, dir:player.dir, walking:player.walking }; }
+
+/* ============================================================
+   수집 카운터 감시  (임베드 전용: store + onCityEvent)
+   ------------------------------------------------------------
+   프레임마다 스냅샷을 비교해 변경 시 즉시 onCityEvent(kind) 통지 +
+   5초 디바운스로 store.saveCollections(). 독립 실행은 아무것도 안 함.
+   ============================================================ */
+const COUNTER_KIND = { wishes:'wish', cans:'can', fish:'fish', odengSold:'odeng',
+                       deliveries:'delivery', coins:'coin', readNotes:'note' };
+let prevSnap=null, countersReady=false, saveTimer=0;
+
+function snapshotCollections(){
+  return {
+    wishes:GS.wishes, cans:GS.cans, fish:GS.fish, odengSold:GS.odengSold,
+    deliveries:GS.deliveries, coins:GS.coins, readNotes:GS.readNotes,
+    constellations: GS.constellations.slice(),
+  };
+}
+function restoreCollections(c){
+  if(!c) return;
+  for(const k of Object.keys(COUNTER_KIND)) if(typeof c[k]==='number') GS[k]=c[k];
+  if(Array.isArray(c.constellations)) GS.constellations = c.constellations.slice();
+  if(elWish) refreshStats();
+}
+function scheduleSave(){
+  const st=fmcOpts.store;
+  if(!st || typeof st.saveCollections!=='function') return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{ try{ st.saveCollections(snapshotCollections()); }catch(e){} }, 5000);
+}
+function pollCounters(){
+  if(!countersReady || !fmcOpts.store) return;
+  const s = snapshotCollections();
+  let changed=false;
+  for(const k in COUNTER_KIND){
+    if(s[k]!==prevSnap[k]){ changed=true;
+      if(typeof fmcOpts.onCityEvent==='function') fmcOpts.onCityEvent(COUNTER_KIND[k]); }
+  }
+  if(s.constellations.length!==prevSnap.constellations.length){ changed=true;
+    if(typeof fmcOpts.onCityEvent==='function') fmcOpts.onCityEvent('constellation'); }
+  if(changed){ prevSnap=s; scheduleSave(); }
+}
+function applyStore(){
+  const st=fmcOpts.store;
+  if(!st){ return; }                 // 독립 실행: 수집 저장/통지 없음
+  Promise.resolve()
+    .then(()=> typeof st.loadCollections==='function' ? st.loadCollections() : null)
+    .then(c=>{ restoreCollections(c); })
+    .catch(()=>{})
+    .then(()=>{ prevSnap = snapshotCollections(); countersReady = true; });
+}
+
+/* ============================================================
+   부트 / 루프 제어 / pause / resume / destroy
+   ============================================================ */
+function wireHud(){
+  document.querySelectorAll('[data-close]').forEach(b=>
+    reg(b,'click',()=>{
+      closeOverlay(b.dataset.close);
+      // 오버레이가 모두 닫히면 게임 조작(roam)으로 복귀 — 안 하면 캐릭터가 멈춤
+      if(!anyOverlayOpen() && (GS.mode==='board'||GS.mode==='writing')) GS.mode='roam';
+    }));
+  reg($('notePrev'),'click',()=>{
+    boardIndex=(boardIndex-1+boardNotes.length)%boardNotes.length; renderNote(); sfxBlip(500);
+  });
+  reg($('noteNext'),'click',()=>{
+    boardIndex=(boardIndex+1)%boardNotes.length; renderNote(); sfxBlip(560);
+  });
+  reg($('writeBtn'),'click',()=>{ closeOverlay('boardOv'); openWrite(); });
+  reg($('noteInput'),'input',e=>{ $('charCount').textContent=`${e.target.value.length} / 60`; });
+  reg($('pinBtn'),'click',()=>{
+    const v=$('noteInput').value;
+    if(v.trim()){ addPlayerNote(v); sfxBlip(880); toast('게시판에 붙였어요 ✎'); }
+    closeOverlay('writeOv'); openBoard();
+  });
+  reg($('collBtn'),'click',openColl);
+}
+
+function startLoop(){
+  last = performance.now();
+  rafId = requestAnimationFrame(frame);
+}
+
+function fmcStart(){
+  grabRefs();
+  reg(window,'resize',fit); fit();
+  reg(window,'keydown',onKeyDown);
+  reg(window,'keyup',onKeyUp);
+  reg(cv,'pointerdown',onCanvasPointer);
+  wireHud();
+  wireTouch();
+
+  fmcTimers.push(setTimeout(cycleHint,2200));
+  fmcTimers.push(setInterval(cycleHint,13000));
+
+  GS.pal = palette(GS.tOff);
+  loadPlayerNotes();
+  rebuildBoard();
+  applyStore();
+
+  fmcPaused = false;
+  startLoop();
+}
+
+function fmcPause(){
+  if(fmcPaused) return;
+  fmcPaused = true;
+  if(rafId){ cancelAnimationFrame(rafId); rafId=0; }
+  input.left=false; input.right=false;   // 눌린 키 고착 방지
+}
+function fmcResume(){
+  if(!fmcPaused) return;
+  fmcPaused = false;
+  startLoop();
+}
+function fmcDestroy(){
+  fmcPaused = true;
+  if(rafId){ cancelAnimationFrame(rafId); rafId=0; }
+  clearTimeout(saveTimer);
+  for(const t of fmcTimers){ clearTimeout(t); clearInterval(t); }
+  fmcTimers.length=0;
+  for(const l of fmcListeners){ try{ l.target.removeEventListener(l.type,l.fn); }catch(e){} }
+  fmcListeners.length=0;
+}
+
+/* 독립 실행(index.html)은 여기서 자동 부트. 임베드는 FMC.boot 가 호출. */
+if(!window.__FMC_EMBED__) fmcStart();

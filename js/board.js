@@ -1,8 +1,10 @@
 'use strict';
 /* ============================================================
-   5분 도시 — board.js
-   거리 게시판: NPC 랜덤 쪽지 + 플레이어가 남긴 쪽지
-   플레이어 쪽지는 localStorage에 저장됨 (STORE_KEY)
+   5분 도시 — board.js   (로드 순서: … → world → board → stars → …)
+   거리 게시판: NPC 랜덤 쪽지 + 사용자 쪽지
+   쪽지 저장은 스토어 어댑터를 통한다.
+   - 기본 어댑터: localStorage (독립 실행 동일 동작)
+   - 임베드: boot opts.store 를 setNoteStore()로 주입 → 공용 게시판
    ============================================================ */
 
 /* NPC 쪽지 풀. when: 'any'|'day'|'night'|'dusk', rain:true=비올때만 */
@@ -34,28 +36,60 @@ const NPC_NOTES = [
 ];
 
 let boardNotes = [];        // 현재 보드에 꽂힌 쪽지 (섞인 상태)
-let playerNotes = [];       // 플레이어가 남긴 쪽지 [{t, ts}]
+let boardAllNotes = [];     // 스토어에서 온 사용자 쪽지 [{t, ts, mine, who}]
+let playerNotes = [];       // 내 쪽지(수집 패널용) — boardAllNotes 중 mine 만
 let boardIndex = 0;         // 읽기 오버레이에서 넘긴 위치
 let notePinTimer = 20;      // 새 NPC 쪽지가 꽂히는 주기
 const seenNotes = new Set();
 
+/* ---------- 쪽지 스토어 어댑터 ---------- */
+/* 기본: localStorage. 내 쪽지만 저장되므로 mine=true / who='나' 로 표기. */
+const localNoteStore = {
+  loadNotes(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return arr.map(p=>({ t:p.t, ts:p.ts, mine:true, who:'나' }));
+    }catch(e){ return []; }
+  },
+  saveNote(text){
+    const t = String(text).trim().slice(0,60);
+    if(!t) return;
+    let arr=[];
+    try{ const raw=localStorage.getItem(STORE_KEY); arr = raw?JSON.parse(raw):[]; }catch(e){}
+    arr.unshift({t, ts:Date.now()});
+    arr = arr.slice(0,20);           // 최근 20개만
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(arr)); }
+    catch(e){ /* 시크릿 모드 등: 무시 */ }
+  },
+};
+let noteStore = localNoteStore;
+
+/* 임베드 boot 에서 공용 게시판 어댑터 주입 */
+function setNoteStore(s){ if(s) noteStore = s; }
+
+function syncPlayerNotes(){ playerNotes = boardAllNotes.filter(n=>n.mine); }
+
+/* 스토어에서 쪽지 로드(비동기 가능) → 보드 재구성 */
 function loadPlayerNotes(){
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    playerNotes = raw ? JSON.parse(raw) : [];
-  }catch(e){ playerNotes = []; }
+  return Promise.resolve()
+    .then(()=>noteStore.loadNotes())
+    .then(n=>{ boardAllNotes = Array.isArray(n)?n:[]; syncPlayerNotes(); rebuildBoard(); })
+    .catch(()=>{ boardAllNotes=[]; syncPlayerNotes(); rebuildBoard(); });
 }
-function savePlayerNotes(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(playerNotes)); }
-  catch(e){ /* 시크릿 모드 등: 무시, 이번 세션만 유지 */ }
-}
+
 function addPlayerNote(text){
-  const t = text.trim().slice(0,60);
+  const t = String(text).trim().slice(0,60);
   if(!t) return;
-  playerNotes.unshift({t, ts:Date.now()});
-  playerNotes = playerNotes.slice(0,20);   // 최근 20개만
-  savePlayerNotes();
+  // 낙관적 반영: 내 쪽지를 즉시 보드에 표시
+  boardAllNotes.unshift({t, ts:Date.now(), mine:true, who:'나'});
+  syncPlayerNotes();
   rebuildBoard();
+  // 저장 후 스토어 진실로 재동기화
+  Promise.resolve()
+    .then(()=>noteStore.saveNote(t))
+    .then(()=>loadPlayerNotes())
+    .catch(()=>{});
 }
 
 function noteFits(n, t, night, rain){
@@ -71,12 +105,12 @@ function noteFits(n, t, night, rain){
 function rebuildBoard(){
   const t=GS.t, night=GS.pal?GS.pal.night:0, rain=GS.rain;
   const pool = NPC_NOTES.filter(n=>noteFits(n,t,night,rain));
-  // NPC 6~8개 랜덤 + 플레이어 쪽지 전부, 살짝 섞기
+  // NPC 6~8개 랜덤 + 사용자 쪽지 전부, 살짝 섞기
   const pick = pool.slice().sort(()=>Math.random()-.5).slice(0, 7)
-                 .map(n=>({t:n.t, mine:false}));
-  const mine = playerNotes.map(p=>({t:p.t, mine:true}));
+                 .map(n=>({t:n.t, mine:false, who:null}));
+  const mine = boardAllNotes.map(p=>({t:p.t, mine:!!p.mine, who:p.who||null}));
   boardNotes = mine.concat(pick).sort(()=>Math.random()-.5);
-  if(boardNotes.length===0) boardNotes=[{t:'아직 아무 쪽지도 없어요', mine:false}];
+  if(boardNotes.length===0) boardNotes=[{t:'아직 아무 쪽지도 없어요', mine:false, who:null}];
 }
 
 /* 새 NPC 쪽지가 가끔 꽂힘 */
