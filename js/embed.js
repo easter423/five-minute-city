@@ -10,6 +10,12 @@
 
    window.FMC = { boot, pause, resume, destroy,
                   setRemotePlayers, showBubble, setSelfName, getSelfState }
+
+   boot(opts) 주요 필드:
+     container, buildings, onEnterBuilding, playerColors, store, onCityEvent,
+     assetBase?  — 정적 에셋 베이스 경로. 설정 시 전역 ASSET_BASE 에 반영되어
+                   named building 파사드 시트를 (assetBase + 'assets/city/CITY_MEGA.png')
+                   에서 로드한다. 생략 시 '' (index.html 기준 상대경로, 독립 실행 기본).
    ============================================================ */
 
 (function(){
@@ -117,6 +123,10 @@
         if(typeof closeOverlay==='function') closeOverlay('odengOv');
         if(typeof odengStart==='function') odengStart();
       });
+
+      // 에셋 베이스 경로 (예: cafe-bb7 는 '/city/' 주입 → assets 는 /city/assets/city/…)
+      // config.js 의 전역 ASSET_BASE 에 반영. fmcStart → loadCityImage 가 이 값을 사용.
+      if(typeof opts.assetBase === 'string') ASSET_BASE = opts.assetBase;
 
       // 색 · 게시판 스토어 · opts 주입
       if(opts.playerColors) call('setPlayerColors', opts.playerColors);

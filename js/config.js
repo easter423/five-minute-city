@@ -27,18 +27,26 @@ const LM = {
 };
 const STORE_KEY = 'fmc.notes.v1';   // 플레이어가 남긴 쪽지 저장
 
+/* 에셋 로드 베이스 경로.
+   독립 실행 = '' (index.html 기준 상대경로: assets/city/…).
+   임베드는 FMC.boot({ assetBase:'/city/' }) 로 주입 → embed.js 가 여기에 반영. */
+let ASSET_BASE = '';
+
 /* named building(간판 있는 건물) 기본 배치 — city-integration 계약 §2
-   x = 거리 문 위치(world x, 문은 건물 중앙), w = 건물 폭(px).
+   x  = 거리 문 위치(world x). 계약 §2 값 그대로 유지(랜드마크와 비겹침 보장).
+   w  = 파사드 실폭(px, = sprite.sw).
+   doorOffset = 파사드 좌측 기준 문 중앙까지의 px. 건물 좌측 = x - doorOffset.
+   sprite = City Mega Pack(CC0) 시트 CITY_MEGA.png 안의 파사드 소스 사각형.
    임베드 시 boot opts.buildings 로 교체 가능(동일 데이터). */
 const CITY_BUILDINGS = [
-  { id:'cafe',      label:'카페 bb7',   x:240,  w:52 },
-  { id:'korean',    label:'한식당',     x:420,  w:44 },
-  { id:'chinese',   label:'중식당',     x:760,  w:44 },
-  { id:'japanese',  label:'일식당',     x:880,  w:44 },
-  { id:'western',   label:'양식당',     x:1180, w:44 },
-  { id:'cinema',    label:'영화관',     x:1320, w:70 },
-  { id:'boardgame', label:'보드게임장', x:1560, w:48 },
-  { id:'office',    label:'사무실',     x:1750, w:60 },
+  { id:'cafe',      label:'카페 bb7',   x:240,  w:140, doorOffset:70,  sprite:{ sx:768,  sy:1769, sw:140, sh:70  } },
+  { id:'korean',    label:'한식당',     x:420,  w:165, doorOffset:87,  sprite:{ sx:105,  sy:1698, sw:165, sh:141 } },
+  { id:'chinese',   label:'중식당',     x:760,  w:195, doorOffset:151, sprite:{ sx:1034, sy:1742, sw:195, sh:97  } },
+  { id:'japanese',  label:'일식당',     x:880,  w:119, doorOffset:60,  sprite:{ sx:535,  sy:1666, sw:119, sh:173 } },
+  { id:'western',   label:'양식당',     x:1180, w:170, doorOffset:34,  sprite:{ sx:1258, sy:1757, sw:170, sh:82  } },
+  { id:'cinema',    label:'영화관',     x:1320, w:93,  doorOffset:47,  sprite:{ sx:660,  sy:1642, sw:93,  sh:197 } },
+  { id:'boardgame', label:'보드게임장', x:1560, w:139, doorOffset:55,  sprite:{ sx:356,  sy:1682, sw:139, sh:157 } },
+  { id:'office',    label:'사무실',     x:1750, w:93,  doorOffset:47,  sprite:{ sx:660,  sy:1642, sw:93,  sh:197 } },
 ];
 
 /* 전역 게임 상태 — main.js 루프에서 갱신 */

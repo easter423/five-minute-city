@@ -632,6 +632,7 @@ function fmcStart(){
   fmcTimers.push(setInterval(cycleHint,13000));
 
   GS.pal = palette(GS.tOff);
+  loadCityImage();          // ASSET_BASE 확정 후 파사드 시트 로드 (실패 시 사각형 폴백)
   loadPlayerNotes();
   rebuildBoard();
   applyStore();

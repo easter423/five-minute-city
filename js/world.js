@@ -2,8 +2,8 @@
 /* ============================================================
    5분 도시 — world.js   (로드 순서: config → palette → world → …)
    스카이라인 · 하늘 · 거리(인도/차도) · 거리 소품 · named building
-   * 이미지 에셋으로 교체하려면 drawBuildingLayer() 대신
-     ctx.drawImage(img, -off, ...)를 랩어라운드로 두 번 그리면 됨.
+   * named building 파사드는 City Mega Pack(CC0) 시트에서 drawNamedSprite() 로
+     그린다(랩어라운드 두 위치). 시트 미로딩/실패 시 사각형+간판 폴백.
    ============================================================ */
 
 /* ---------- 건물 레이어 ----------
@@ -50,8 +50,9 @@ function makeBuildingLayer(seed, o){
 }
 
 /* named building 고정 배치 + 사이 공백만 절차 생성으로 채운 front 레이어.
-   named building: 지정 x(문 중앙)/w, 높이는 40~72 범위에서 다양하게,
-   문 폭 5(건물 중앙), 간판(label)은 상단에. seed 는 그대로 유지. */
+   named building: 문 world x(nb.x)는 §2 계약 고정, 건물 좌측 = nb.x - doorOffset,
+   폭 = nb.w(파사드 실폭). 스프라이트가 있으면 높이 = sprite.sh, 없으면 폴백 높이.
+   간판(한글 label)은 파사드 위에. seed 는 그대로 유지. */
 const NAMED_DOOR_W = 5;
 const NAMED_HEIGHTS = { cafe:64, korean:52, chinese:46, japanese:46,
                         western:56, cinema:60, boardgame:54, office:50 };
@@ -81,12 +82,16 @@ function makeNamedFrontLayer(r, o){
 
   for(const nb of named){
     const w = nb.w|0;
-    const left = Math.round(nb.x - w/2);
+    const sp = nb.sprite || null;
+    const doorOffset = nb.doorOffset!=null ? (nb.doorOffset|0) : (w>>1);
+    const left = nb.x - doorOffset;        // 문 world x 를 nb.x 에 고정
     fillGap(cursor, left);
-    const h = namedHeight(nb.id);
+    const h = sp ? sp.sh : namedHeight(nb.id);
     const b = buildingBody(r, left, w, h, o);
-    b.door = { x: Math.round((w - NAMED_DOOR_W)/2), w:NAMED_DOOR_W, h:9 };
+    // door.x: 문 중앙이 정확히 nb.x 가 되도록 (center = left + door.x + door.w/2)
+    b.door = { x: doorOffset - NAMED_DOOR_W/2, w:NAMED_DOOR_W, h:9 };
     b.named = { id:nb.id, label:nb.label };
+    b.sprite = sp;
     buildings.push(b);
     cursor = left + w;
   }
@@ -102,6 +107,19 @@ const layers = [
                         named:(typeof CITY_BUILDINGS!=='undefined'?CITY_BUILDINGS:null)}),
 ];
 const FRONT = layers[2];
+
+/* ---------- named building 파사드 스프라이트 (City Mega Pack, CC0) ----------
+   ASSET_BASE + 'assets/city/CITY_MEGA.png' 를 로드. 로드 전/실패 시 cityImg=null
+   → drawBuildingLayer 가 기존 사각형+간판 폴백으로 그린다(file:// · 임베드 초기 프레임 안전).
+   ASSET_BASE 가 확정된 뒤(fmcStart) 호출되도록 loadCityImage() 로 분리. */
+let cityImg = null;
+function loadCityImage(){
+  const src = (typeof ASSET_BASE==='string' ? ASSET_BASE : '') + 'assets/city/CITY_MEGA.png';
+  const img = new Image();
+  img.onload  = ()=>{ cityImg = img; };
+  img.onerror = ()=>{ cityImg = null; };   // 실패 시 폴백 유지
+  img.src = src;
+}
 
 /* ---------- 별 · 구름 ---------- */
 const stars = (()=>{ const r=rng(7), a=[];
@@ -210,6 +228,14 @@ function drawBuildingLayer(ctx, L, pal){
     for(const base of [b.x-off, b.x-off+L.loop]){
       if(base>W||base+b.w<0) continue;
       const y=HORIZON-b.h;
+
+      /* named building + 스프라이트 시트 로드 완료 → 이미지 파사드 */
+      if(b.named && b.sprite && cityImg){
+        drawNamedSprite(ctx, base, b, pal);
+        drawBuildingSign(ctx, base, (HORIZON - b.sprite.sh) - 14, b, pal);  // 파사드 위 한글 간판
+        continue;
+      }
+
       ctx.fillStyle=css(col);
       ctx.fillRect(base|0, y, b.w, b.h);
       for(const rf of b.roof){
@@ -239,6 +265,28 @@ function drawBuildingLayer(ctx, L, pal){
       }
       if(b.named) drawBuildingSign(ctx, base, y, b, pal);
     }
+  }
+}
+
+/* named building 파사드를 시트에서 잘라 그린다(1:1) + 밤낮 톤.
+   바닥은 HORIZON 에 맞춘다(drawGround 가 이후 인도/차도를 덮음). */
+function drawNamedSprite(ctx, base, b, pal){
+  const sp = b.sprite;
+  const dx = base|0, dy = HORIZON - sp.sh;
+  ctx.drawImage(cityImg, sp.sx, sp.sy, sp.sw, sp.sh, dx, dy, sp.sw, sp.sh);
+  // 밤 어둠 오버레이 (파사드 위에 반투명 남색)
+  if(pal.night > 0.02){
+    ctx.fillStyle = `rgba(10,12,40,${(pal.night*0.45).toFixed(3)})`;
+    ctx.fillRect(dx, dy, sp.sw, sp.sh);
+  }
+  // 밤엔 문/1층 부근 은은한 창문 불빛 글로우
+  if(pal.night > 0.4){
+    const gx = base + b.door.x + b.door.w/2;
+    const g = ctx.createRadialGradient(gx, HORIZON-4, 1, gx, HORIZON-4, 22);
+    g.addColorStop(0, `rgba(255,214,140,${(0.24*pal.night).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(255,214,140,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(dx, HORIZON-26, sp.sw, 26);
   }
 }
 
