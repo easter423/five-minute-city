@@ -156,7 +156,7 @@ function drawStallUI(ctx, now){
   // 안내 텍스트
   ctx.fillStyle='rgba(255,255,255,.85)';
   ctx.textAlign='center';
-  ctx.font="8px 'Mulmaru Mono', monospace";
+  ctx.font="8px 'Galmuri9', monospace";
   let label='';
   if(s.phase==='pour')   label='SPACE / ↑ : 반죽 붓기';
   if(s.phase==='grill1') label='굽는 중… GOOD 일 때 뒤집기!';

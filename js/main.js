@@ -47,7 +47,12 @@ function refreshStats(){
 function fit(){
   if(!cv) return;
   const s=Math.max(innerWidth/W, innerHeight/H);
-  cv.style.width=W*s+'px'; cv.style.height=H*s+'px';
+  const cssW=W*s, cssH=H*s;
+  cv.style.width=cssW+'px'; cv.style.height=cssH+'px';
+  // 백킹 스토어를 실제 디바이스 픽셀로 — 저해상도 확대로 인한 텍스트 blur 방지(cafe 엔진과 동일 방식)
+  const dpr=Math.min(window.devicePixelRatio||1, 2);
+  const bw=Math.max(W, Math.round(cssW*dpr)), bh=Math.max(H, Math.round(cssH*dpr));
+  if(cv.width!==bw||cv.height!==bh){ cv.width=bw; cv.height=bh; }
 }
 
 /* ---------- 토스트 · 힌트 ---------- */
@@ -409,6 +414,8 @@ function frame(now){
   }
 
   /* ----- 렌더 ----- */
+  ctx.setTransform(cv.width/W, 0, 0, cv.height/H, 0, 0);
+  ctx.imageSmoothingEnabled=false;
   drawSky(ctx,pal,GS.t,now);
   updateDrawShots(ctx,dt);
   updateDrawPlane(ctx,pal,now,dt);
@@ -502,7 +509,7 @@ function drawSelfOverlay(ctx, now){
   if(b && b.until>now) drawSpeechBubble(ctx, sx, fy-24, b.text);
 }
 function drawNameTag(ctx, sx, y, name){
-  ctx.font="6px 'Mulmaru Mono', monospace";
+  ctx.font="6px 'Galmuri7', monospace";
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
   const tw = Math.ceil(ctx.measureText(name).width);
   ctx.fillStyle='rgba(10,12,28,.55)';
@@ -512,7 +519,7 @@ function drawNameTag(ctx, sx, y, name){
   ctx.textAlign='left';
 }
 function drawSpeechBubble(ctx, sx, y, text){
-  ctx.font="6px 'Mulmaru Mono', monospace";
+  ctx.font="6px 'Galmuri7', monospace";
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
   const tw = Math.min(Math.ceil(ctx.measureText(text).width), 150);
   const bw = tw+8, bh = 12;

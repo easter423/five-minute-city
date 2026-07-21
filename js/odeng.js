@@ -313,7 +313,7 @@ function drawOdengStall(ctx, pal, now){
     ng.addColorStop(0,`rgba(255,60,50,${.2*neon})`); ng.addColorStop(1,'rgba(255,60,50,0)');
     ctx.fillStyle=ng; ctx.beginPath(); ctx.arc(sx+36,gy-35,18,0,7); ctx.fill();
     ctx.fillStyle=`rgba(255,120,110,${.55+.45*neon})`;
-    ctx.font="8px 'Mulmaru Mono', monospace"; ctx.textAlign='center';
+    ctx.font="8px 'Galmuri9', monospace"; ctx.textAlign='center';
     ctx.fillText('오', sx+36, gy-37);
     ctx.fillText('뎅', sx+36, gy-28);
     ctx.textAlign='left';
@@ -432,7 +432,7 @@ function drawOdengUI(ctx, now){
     ctx.fillStyle='#e8c060'; ctx.fillRect(lx,ly+13,1,2);
   }
 
-  ctx.font="8px 'Mulmaru Mono', monospace";
+  ctx.font="8px 'Galmuri9', monospace";
 
   /* ---------- 상단 HUD ---------- */
   const frac=clamp(o.timeLeft/ODENG_TIME,0,1);

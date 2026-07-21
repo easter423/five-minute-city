@@ -1,8 +1,6 @@
-@font-face{
-  font-family:'Mulmaru Mono';
-  src:url('../assets/fonts/MulmaruMono.woff2') format('woff2');
-  font-display:swap;
-}
+@font-face{font-family:'Galmuri11';src:url('../assets/fonts/Galmuri11.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Galmuri9';src:url('../assets/fonts/Galmuri9.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Galmuri7';src:url('../assets/fonts/Galmuri7.woff2') format('woff2');font-display:swap}
 
 :root{
   --ink:#0b1026;
@@ -16,7 +14,8 @@
 #fmc-root{
   position:fixed;inset:0;overflow:hidden;
   background:var(--ink);
-  font-family:'Mulmaru Mono',ui-monospace,monospace;
+  font-family:'Galmuri11','Galmuri9',ui-monospace,monospace;
+  -webkit-font-smoothing:none;-moz-osx-font-smoothing:grayscale;
   -webkit-tap-highlight-color:transparent;
   touch-action:none;
 }

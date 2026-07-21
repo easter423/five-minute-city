@@ -304,7 +304,7 @@ function delivDrawArrow(ctx, wx, now, isScooter, food){
 
 /* ---------- 월드/HUD 그리기 (매 프레임) ---------- */
 function drawDeliveryWorld(ctx, pal, now){
-  ctx.font="8px 'Mulmaru Mono', monospace";
+  ctx.font="8px 'Galmuri9', monospace";
 
   if(!deliv.active){
     // 비활성: 스쿠터 근처면 작은 힌트

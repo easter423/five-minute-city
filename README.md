@@ -90,8 +90,12 @@ js/actors.js        별똥별 · 비행기 · 전철 · 새 · 고양이 두 마
 js/player.js        캐릭터 (이동 · 대시 · 점프 · 앉기 · 우산 · 스프라이트)
 js/audio.js         WebAudio 로파이 패드 · 크래클 · 빗소리 · 효과음
 js/main.js          부트 · 입력 · 모드 라우팅 · 오버레이 · 메인 루프
-assets/fonts/       Mulmaru Mono (물마루 Mono)
+assets/fonts/       Galmuri (갈무리) 픽셀 폰트 7 / 9 / 11
 ```
+
+캔버스(`#scene`)의 백킹 스토어를 디바이스 픽셀 해상도(DPR, 최대 2배)로 잡고
+매 프레임 월드(480×270)→백킹 변환으로 그리므로, 저해상도 확대로 인한 텍스트
+blur 없이 Galmuri 픽셀 폰트가 선명하게 보입니다.
 
 배경·캐릭터·소품은 이미지 없이 코드로 그립니다. 다만 거리의 named building
 8동 외관만은 픽셀 에셋(`assets/city/CITY_MEGA.png`)에서 파사드를 잘라 그립니다
@@ -123,7 +127,7 @@ FMC.boot({
 
 ## 크레딧
 
-- 폰트: [물마루 Mono (Mulmaru Mono)](https://github.com/mushsooni/mulmaru) © Mushsooni,
+- 폰트: [Galmuri (갈무리)](https://github.com/quiple/galmuri) © Lee Minseo,
   [SIL Open Font License 1.1](assets/fonts/OFL-LICENSE.txt)
 - 거리 파사드: [City Mega Pack](https://opengameart.org/content/city-mega-pack)
   © GrafxKid, **CC0 1.0 (Public Domain)** — [assets/city/CREDITS.md](assets/city/CREDITS.md)

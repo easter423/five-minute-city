@@ -293,7 +293,7 @@ function drawNamedSprite(ctx, base, b, pal){
 /* named building 간판 — 건물 상단에 라벨을 픽셀 폰트로 */
 function drawBuildingSign(ctx, base, y, b, pal){
   const cx = (base + b.w/2)|0;
-  ctx.font = "7px 'Mulmaru Mono', monospace";
+  ctx.font = "7px 'Galmuri7', monospace";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   const label = b.named.label;
