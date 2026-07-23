@@ -146,31 +146,39 @@ const props = (()=>{
 function lampIsOn(p, pal){ return p.on===null ? pal.night>.45 : p.on; }
 
 /* ---------- 상호작용 대상 찾기 ----------
-   반환: {type:'prop'|'door', obj, wx} 또는 null */
+   반환: {type:'prop'|'door', obj, wx} 또는 null
+   우선순위(계약): 거리 소품 > named 가게 문(입장) > 절차생성 건물 문(불 토글).
+   (앉기해제·배달·랜드마크·길고양이·별자리는 main.js tryInteract 에서 별도 처리) */
 function findInteract(px){
-  // named building 문을 최우선 매칭 (임베드에서 건물 입장 트리거)
-  let namedBest=null, namedD=9;
-  for(const b of FRONT.buildings){
-    if(!b.door || !b.named) continue;
-    const dx = b.x + b.door.x + b.door.w/2;
-    const d = Math.abs(wrapDelta(dx - px, WLOOP));
-    if(d < namedD){ namedBest={type:'door',obj:b,wx:dx}; namedD=d; }
-  }
-  if(namedBest) return namedBest;
-
+  // 1) 거리 소품 우선 — 같은 위치에 소품이 있으면 소품이 이긴다
   let best=null, bestD=13;
   for(const p of props){
     const d = Math.abs(wrapDelta(p.x - px, WLOOP));
     const reach = p.kind==='bench'?11:9;
     if(d < Math.min(bestD, reach)){ best={type:'prop',obj:p,wx:p.x}; bestD=d; }
   }
+  if(best) return best;
+
+  // 2) named 가게 문 — 인식 범위를 파사드 폭까지 넓힘(주인공 뒤에 가게가 있으면 입장)
+  let namedBest=null, namedD=Infinity;
+  for(const b of FRONT.buildings){
+    if(!b.door || !b.named) continue;
+    const dx = b.x + b.door.x + b.door.w/2;
+    const reach = Math.max(b.w/2, 12);
+    const d = Math.abs(wrapDelta(dx - px, WLOOP));
+    if(d < reach && d < namedD){ namedBest={type:'door',obj:b,wx:dx}; namedD=d; }
+  }
+  if(namedBest) return namedBest;
+
+  // 3) 절차생성 건물 문 — 불 토글
+  let procBest=null, procD=8;
   for(const b of FRONT.buildings){
     if(!b.door || b.named) continue;
     const dx = b.x + b.door.x + b.door.w/2;
     const d = Math.abs(wrapDelta(dx - px, WLOOP));
-    if(d < Math.min(bestD, 8)){ best={type:'door',obj:b,wx:dx}; bestD=d; }
+    if(d < procD){ procBest={type:'door',obj:b,wx:dx}; procD=d; }
   }
-  return best;
+  return procBest;
 }
 
 /* ============================================================
@@ -290,24 +298,33 @@ function drawNamedSprite(ctx, base, b, pal){
   }
 }
 
-/* named building 간판 — 건물 상단에 라벨을 픽셀 폰트로 */
+/* named building 간판 — 건물 상단에 라벨을 픽셀 폰트로.
+   월드 배율(비정수)로 확대되면 뭉개지므로 디바이스 좌표계에서 Galmuri11 정수배로 그린다. */
 function drawBuildingSign(ctx, base, y, b, pal){
-  const cx = (base + b.w/2)|0;
-  ctx.font = "7px 'Galmuri7', monospace";
+  const dsx=cv.width/W, dsy=cv.height/H, ds=dsx;
+  const fs = 11 * Math.max(1, Math.round(ds*7/11));     // Galmuri11 정수배 (≈7px×ds)
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.font = fs+"px 'Galmuri11', monospace";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   const label = b.named.label;
+  const cx = Math.round((base + b.w/2)*dsx);
+  const plateY = Math.round((y + 2)*dsy);
   const tw = Math.ceil(ctx.measureText(label).width);
-  const plateW = tw + 6, plateX = cx - (plateW>>1), plateY = y + 2;
+  const padX = Math.round(fs*3/7);                       // 원본 plateW=tw+6(@7px)
+  const plateW = tw + padX*2, plateX = cx - (plateW>>1);
+  const plateH = Math.round(fs*10/7);
+  const hl = Math.max(1, Math.round(dsy));
   // 간판 판
   ctx.fillStyle = 'rgba(10,12,28,.82)';
-  ctx.fillRect(plateX, plateY, plateW, 10);
+  ctx.fillRect(plateX, plateY, plateW, plateH);
   ctx.fillStyle = 'rgba(255,255,255,.14)';
-  ctx.fillRect(plateX, plateY, plateW, 1);
+  ctx.fillRect(plateX, plateY, plateW, hl);
   // 라벨 (밤엔 따뜻한 색, 낮엔 밝은 미색)
   ctx.fillStyle = pal.night>.4 ? '#ffd27f' : '#f2eee4';
-  ctx.fillText(label, cx, plateY + 8);
-  ctx.textAlign = 'left';
+  ctx.fillText(label, cx, plateY + Math.round(fs*8/7));  // 원본 baseline plateY+8(@7px)
+  ctx.restore();
 }
 
 function drawGround(ctx, pal){

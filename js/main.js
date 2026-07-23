@@ -179,42 +179,40 @@ function tryInteract(){
     }
   }
 
-  /* 밤이면 하늘: 별자리 잇기 진입 */
-  if(GS.pal && GS.pal.night>.5 && !findInteract(player.x)){
-    if(skyEnter()) return;
+  /* 거리 소품 > named 가게 문(입장) > 절차생성 문(불 토글) — findInteract 우선순위 */
+  const hit=findInteract(player.x);
+  if(hit){
+    if(hit.type==='door'){
+      // named building 문: 임베드면 건물 입장 트리거, 독립 실행은 기존 불 토글로 폴백
+      if(hit.obj.named && window.__FMC_EMBED__ && typeof fmcOpts.onEnterBuilding==='function'){
+        fmcOpts.onEnterBuilding(hit.obj.named.id); sfxBlip(740); return;
+      }
+      hit.obj.boost = hit.obj.boost?0:1;
+      sfxBlip(hit.obj.boost?740:490);
+      return;
+    }
+    const p=hit.obj;
+    if(p.kind==='lamp'){
+      p.on = !lampIsOn(p, GS.pal); sfxBlip(p.on?660:440);
+    }
+    else if(p.kind==='bench'){
+      player.sitting=p; player.x=p.x; sfxBlip(520);
+      if(!benchHintShown){ toast('시간이 빨리 흘러요'); benchHintShown=true; }
+    }
+    else if(p.kind==='vend'){
+      const [line, ok]=VEND_LINES[(Math.random()*VEND_LINES.length)|0];
+      toast(line);
+      if(ok){ GS.cans++; refreshStats(); sfxBlip(980); }
+      else sfxBlip(220);
+    }
+    else if(p.kind==='bus'){
+      toast(BUS_LINES[(Math.random()*BUS_LINES.length)|0]); sfxBlip(390);
+    }
+    return;
   }
 
-  const hit=findInteract(player.x);
-  if(!hit){
-    // 낮이면 살펴봐도 하늘엔 아무것도, 아무 반응 없이 종료
-    return;
-  }
-  if(hit.type==='door'){
-    // named building 문: 임베드면 건물 입장 트리거, 독립 실행은 기존 불 토글로 폴백
-    if(hit.obj.named && window.__FMC_EMBED__ && typeof fmcOpts.onEnterBuilding==='function'){
-      fmcOpts.onEnterBuilding(hit.obj.named.id); sfxBlip(740); return;
-    }
-    hit.obj.boost = hit.obj.boost?0:1;
-    sfxBlip(hit.obj.boost?740:490);
-    return;
-  }
-  const p=hit.obj;
-  if(p.kind==='lamp'){
-    p.on = !lampIsOn(p, GS.pal); sfxBlip(p.on?660:440);
-  }
-  else if(p.kind==='bench'){
-    player.sitting=p; player.x=p.x; sfxBlip(520);
-    if(!benchHintShown){ toast('시간이 빨리 흘러요'); benchHintShown=true; }
-  }
-  else if(p.kind==='vend'){
-    const [line, ok]=VEND_LINES[(Math.random()*VEND_LINES.length)|0];
-    toast(line);
-    if(ok){ GS.cans++; refreshStats(); sfxBlip(980); }
-    else sfxBlip(220);
-  }
-  else if(p.kind==='bus'){
-    toast(BUS_LINES[(Math.random()*BUS_LINES.length)|0]); sfxBlip(390);
-  }
+  /* 위 어떤 대상도 없을 때만: 밤하늘 별자리 잇기 */
+  if(GS.pal && GS.pal.night>.5){ if(skyEnter()) return; }
 }
 
 /* SPACE / ↑ 를 현재 모드에 맞게 라우팅 */
@@ -517,32 +515,49 @@ function drawSelfOverlay(ctx, now){
   const b = bubbles.get('self');
   if(b && b.until>now) drawSpeechBubble(ctx, sx, fy-24, b.text);
 }
+/* 이름표/말풍선/간판은 월드(480×270) 안에서 6~7px 로 그린 뒤 비정수 배율로 확대되면
+   픽셀 폰트여도 뭉개진다. → 디바이스(백킹 스토어) 좌표계에서 직접, Galmuri 네이티브
+   크기의 정수배로 그린다. (setTransform 초기화 후 좌표는 월드×배율, 정수 반올림) */
 function drawNameTag(ctx, sx, y, name){
-  ctx.font="6px 'Galmuri7', monospace";
+  const dsx=cv.width/W, dsy=cv.height/H, ds=dsx;
+  const fs = 9 * Math.max(1, Math.round(ds*6/9));       // Galmuri9 정수배 (≈6px×ds)
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.font = fs+"px 'Galmuri9', monospace";
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  const tw = Math.ceil(ctx.measureText(name).width);
+  const px=Math.round(sx*dsx), py=Math.round(y*dsy);
+  const tw=Math.ceil(ctx.measureText(name).width);
+  const padX=Math.round(fs/3);                          // 원본 2px(@6px) 비율
   ctx.fillStyle='rgba(10,12,28,.55)';
-  ctx.fillRect((sx-tw/2-2)|0, (y-6)|0, (tw+4)|0, 8);
+  ctx.fillRect(px-((tw>>1)+padX), py-fs, tw+padX*2, Math.round(fs*4/3));
   ctx.fillStyle='rgba(255,255,255,.92)';
-  ctx.fillText(name, sx, y);
-  ctx.textAlign='left';
+  ctx.fillText(name, px, py);
+  ctx.restore();
 }
 function drawSpeechBubble(ctx, sx, y, text){
-  ctx.font="6px 'Galmuri7', monospace";
+  const dsx=cv.width/W, dsy=cv.height/H, ds=dsx;
+  const fs = 9 * Math.max(1, Math.round(ds*6/9));       // Galmuri9 정수배
+  const bd = Math.max(1, Math.round(ds));               // 테두리 두께
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.font = fs+"px 'Galmuri9', monospace";
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  const tw = Math.min(Math.ceil(ctx.measureText(text).width), 150);
-  const bw = tw+8, bh = 12;
-  const bx = (sx-bw/2)|0, by = (y-bh)|0;
+  const px=Math.round(sx*dsx), y0=Math.round(y*dsy);
+  const tw=Math.min(Math.ceil(ctx.measureText(text).width), Math.round(150*ds));
+  const padX=Math.round(fs*2/3);                        // 원본 4px(@6px)
+  const bw=tw+padX*2, bh=Math.round(fs*2);             // 원본 12px(@6px)=fs*2
+  const bx=px-(bw>>1), by=y0-bh;
   ctx.fillStyle='rgba(255,255,255,.95)';
   ctx.fillRect(bx,by,bw,bh);
-  ctx.fillStyle='rgba(10,12,28,.45)';           // 픽셀 테두리
-  ctx.fillRect(bx,by,bw,1); ctx.fillRect(bx,by+bh-1,bw,1);
-  ctx.fillRect(bx,by,1,bh); ctx.fillRect(bx+bw-1,by,1,bh);
-  ctx.fillStyle='rgba(255,255,255,.95)';        // 꼬리
-  ctx.fillRect(sx-1,by+bh,2,2);
+  ctx.fillStyle='rgba(10,12,28,.45)';                   // 픽셀 테두리
+  ctx.fillRect(bx,by,bw,bd); ctx.fillRect(bx,by+bh-bd,bw,bd);
+  ctx.fillRect(bx,by,bd,bh); ctx.fillRect(bx+bw-bd,by,bd,bh);
+  ctx.fillStyle='rgba(255,255,255,.95)';                // 꼬리
+  const tail=Math.round(2*ds);
+  ctx.fillRect(px-(tail>>1),by+bh,tail,tail);
   ctx.fillStyle='#1a1e3c';
-  ctx.fillText(text, sx, by+8);
-  ctx.textAlign='left';
+  ctx.fillText(text, px, by+Math.round(fs*4/3));        // 원본 baseline by+8(@6px)
+  ctx.restore();
 }
 
 /* FMC 훅: 임베드 쪽이 호출 (embed.js 경유) */
