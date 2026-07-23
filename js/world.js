@@ -150,6 +150,14 @@ const props = (()=>{
   a.push({kind:'vend',  x:660  + (r()*40|0)});
   a.push({kind:'vend',  x:1620 + (r()*40|0)});
   a.push({kind:'bus',   x:980  + (r()*40|0)});
+  // named 가게 문 앞(±16px)에 소품이 놓이면 소품 우선 규칙 때문에 입장이 막힌다 → 문 반경 밖으로 밀어냄
+  const doorXs = (typeof CITY_BUILDINGS !== 'undefined' ? CITY_BUILDINGS : []).map(b => b.x);
+  for(const p of a){
+    for(const dx of doorXs){
+      const d = wrapDelta(p.x - dx, WLOOP);
+      if(Math.abs(d) < 16) p.x = (((dx + (d >= 0 ? 16 : -16)) % WLOOP) + WLOOP) % WLOOP;
+    }
+  }
   return a;
 })();
 
