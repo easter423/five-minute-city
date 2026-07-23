@@ -37,10 +37,12 @@ let ASSET_BASE = '';
    w  = 파사드 실폭(px, = sprite.sw).
    doorOffset = 파사드 좌측 기준 문 중앙까지의 px. 건물 좌측 = x - doorOffset.
    sprite = City Mega Pack(CC0) 시트 CITY_MEGA.png 안의 파사드 소스 사각형.
+   sprite.custom:true 인 경우 CITY_MEGA 대신 facades_custom.png(CC0 원본 픽셀 편집 파생물)
+   에서 크롭 — cafe/korean 은 커피전문점/한식당 콘셉트로 개작한 파사드.
    임베드 시 boot opts.buildings 로 교체 가능(동일 데이터). */
 const CITY_BUILDINGS = [
-  { id:'cafe',      label:'카페 bb7',   x:240,  w:140, doorOffset:70,  sprite:{ sx:768,  sy:1769, sw:140, sh:70  } },
-  { id:'korean',    label:'한식당',     x:420,  w:165, doorOffset:87,  sprite:{ sx:105,  sy:1698, sw:165, sh:141 } },
+  { id:'cafe',      label:'카페 bb7',   x:240,  w:140, doorOffset:70,  sprite:{ sx:0,    sy:0,    sw:140, sh:70,  custom:true } },
+  { id:'korean',    label:'한식당',     x:420,  w:165, doorOffset:87,  sprite:{ sx:0,    sy:72,   sw:165, sh:141, custom:true } },
   { id:'chinese',   label:'중식당',     x:760,  w:195, doorOffset:151, sprite:{ sx:1034, sy:1742, sw:195, sh:97  } },
   { id:'japanese',  label:'일식당',     x:880,  w:119, doorOffset:60,  sprite:{ sx:535,  sy:1666, sw:119, sh:173 } },
   { id:'western',   label:'양식당',     x:1180, w:170, doorOffset:34,  sprite:{ sx:1258, sy:1757, sw:170, sh:82  } },

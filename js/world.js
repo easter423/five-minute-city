@@ -113,12 +113,22 @@ const FRONT = layers[2];
    → drawBuildingLayer 가 기존 사각형+간판 폴백으로 그린다(file:// · 임베드 초기 프레임 안전).
    ASSET_BASE 가 확정된 뒤(fmcStart) 호출되도록 loadCityImage() 로 분리. */
 let cityImg = null;
+/* custom 파사드(cafe/korean)는 CC0 원본을 픽셀 편집한 facades_custom.png 에서 크롭.
+   sprite.custom:true → customImg 사용. 로드 전/실패 시 null → 해당 동만 사각형 폴백. */
+let customImg = null;
 function loadCityImage(){
-  const src = (typeof ASSET_BASE==='string' ? ASSET_BASE : '') + 'assets/city/CITY_MEGA.png';
+  const base = (typeof ASSET_BASE==='string' ? ASSET_BASE : '');
   const img = new Image();
   img.onload  = ()=>{ cityImg = img; };
   img.onerror = ()=>{ cityImg = null; };   // 실패 시 폴백 유지
-  img.src = src;
+  img.src = base + 'assets/city/CITY_MEGA.png';
+  loadCustomCityImage(base);
+}
+function loadCustomCityImage(base){
+  const img = new Image();
+  img.onload  = ()=>{ customImg = img; };
+  img.onerror = ()=>{ customImg = null; };  // 실패 시 폴백 유지
+  img.src = base + 'assets/city/facades_custom.png';
 }
 
 /* ---------- 별 · 구름 ---------- */
@@ -237,9 +247,11 @@ function drawBuildingLayer(ctx, L, pal){
       if(base>W||base+b.w<0) continue;
       const y=HORIZON-b.h;
 
-      /* named building + 스프라이트 시트 로드 완료 → 이미지 파사드 */
-      if(b.named && b.sprite && cityImg){
-        drawNamedSprite(ctx, base, b, pal);
+      /* named building + 스프라이트 시트 로드 완료 → 이미지 파사드
+         custom:true 파사드는 facades_custom.png(customImg), 그 외엔 CITY_MEGA(cityImg). */
+      const spImg = (b.named && b.sprite) ? (b.sprite.custom ? customImg : cityImg) : null;
+      if(spImg){
+        drawNamedSprite(ctx, base, b, pal, spImg);
         drawBuildingSign(ctx, base, (HORIZON - b.sprite.sh) - 14, b, pal);  // 파사드 위 한글 간판
         continue;
       }
@@ -278,10 +290,10 @@ function drawBuildingLayer(ctx, L, pal){
 
 /* named building 파사드를 시트에서 잘라 그린다(1:1) + 밤낮 톤.
    바닥은 HORIZON 에 맞춘다(drawGround 가 이후 인도/차도를 덮음). */
-function drawNamedSprite(ctx, base, b, pal){
+function drawNamedSprite(ctx, base, b, pal, img){
   const sp = b.sprite;
   const dx = base|0, dy = HORIZON - sp.sh;
-  ctx.drawImage(cityImg, sp.sx, sp.sy, sp.sw, sp.sh, dx, dy, sp.sw, sp.sh);
+  ctx.drawImage(img, sp.sx, sp.sy, sp.sw, sp.sh, dx, dy, sp.sw, sp.sh);
   // 밤 어둠 오버레이 (파사드 위에 반투명 남색)
   if(pal.night > 0.02){
     ctx.fillStyle = `rgba(10,12,40,${(pal.night*0.45).toFixed(3)})`;
