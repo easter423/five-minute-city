@@ -9,8 +9,11 @@
   --warm:#ffd27f;
 }
 /* 리셋/전역 스타일은 #fmc-root 로 스코프 — 임베드 시 호스트 앱 오염 방지.
-   독립 실행(index.html)도 본문을 #fmc-root 로 감싼다. */
-#fmc-root,#fmc-root *{margin:0;padding:0;box-sizing:border-box}
+   독립 실행(index.html)도 본문을 #fmc-root 로 감싼다.
+   자손 리셋은 :where() 로 명시도 0 유지 — 안 그러면 `#fmc-root *`(id 명시도)가
+   .panel/.coll/.note 등 컴포넌트 여백을 덮어써 패널이 뭉개진다. */
+#fmc-root{margin:0;padding:0;box-sizing:border-box}
+:where(#fmc-root) *{margin:0;padding:0;box-sizing:border-box}
 #fmc-root{
   position:fixed;inset:0;overflow:hidden;
   background:var(--ink);
