@@ -27,16 +27,16 @@
 <div class="hud" id="legend">←→ 걷기 · ⇧/더블탭 대시 · ↑ 살펴보기 · SPACE 점프 · P 수집 · R 비 · M 소리</div>
 <div class="hud chip" id="toast"></div>
 
-<!-- 모바일 터치 컨트롤 (터치 기기에서만 표시) -->
+<!-- 모바일 터치 컨트롤 (터치 기기에서만 표시) — 우측 하단 스택 -->
 <div id="touch">
-  <div class="tgroup left">
-    <button class="tbtn" data-k="left"  aria-label="왼쪽으로 걷기">◀</button>
-    <button class="tbtn" data-k="right" aria-label="오른쪽으로 걷기">▶</button>
-    <button class="tbtn small" data-k="dash" aria-label="대시">»</button>
-  </div>
-  <div class="tgroup right">
+  <div class="tgroup actions">
     <button class="tbtn" data-k="interact" aria-label="살펴보기">↑</button>
     <button class="tbtn" data-k="jump"     aria-label="점프">✦</button>
+    <button class="tbtn" data-k="dash"     aria-label="대시(홀드 스프린트)">»</button>
+  </div>
+  <div class="tgroup move">
+    <button class="tbtn" data-k="left"  aria-label="왼쪽으로 걷기">◀</button>
+    <button class="tbtn" data-k="right" aria-label="오른쪽으로 걷기">▶</button>
   </div>
 </div>
 

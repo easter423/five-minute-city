@@ -14,8 +14,8 @@ const player = {
   walking: false,
   sitting: null,     // 앉아있는 벤치 prop 또는 null
   anim: 0,
-  dashV: 0,          // 대시 잔여 속도
-  dashCd: 0,         // 대시 쿨다운
+  sprint: false,     // 홀드 스프린트 중 (방향키/⇧/» 를 떼면 해제)
+  dashCd: 0,         // 스프린트 진입 쿨다운
   dashGhost: [],     // 잔상 (월드x, dir, life)
   colors: {          // 기본 캐릭터 색 (임베드에서 boot opts.playerColors 로 주입)
     hood:'#e6b455', pants:'#3a4666', skin:'#f2c9a0', hair:'#2a2438',
@@ -34,11 +34,11 @@ function setPlayerColors(c){
   };
 }
 
-const input = { left:false, right:false };
+const input = { left:false, right:false, shift:false };
 
 const PLAYER_SPEED = 62;             // 기본 걷기 (조금 빠르게)
 const JUMP_V = -88, GRAV = 340;
-const DASH_V = 210, DASH_TIME = 0.22, DASH_CD = 0.5;
+const DASH_V = 210, DASH_CD = 0.5;   // 스프린트 속도 / 진입 쿨다운
 
 function playerStand(){
   if(player.sitting){
@@ -52,35 +52,38 @@ function playerJump(){
   if(player.y===0){ player.vy = JUMP_V; sfxBlip(700); }
 }
 
+/* 스프린트 진입(더블탭·⇧·» 홀드). 방향키를 계속 누르는 동안 대시 속도 유지,
+   떼면 멈춘다. 쿨다운은 '진입'에만 적용 — 유지 중에는 재적용하지 않는다. */
 function playerDash(){
-  if(player.sitting || player.dashCd>0 || GS.mode!=='roam') return;
-  player.dashV = DASH_V * player.dir;
-  player.dashCd = DASH_TIME + DASH_CD;
+  if(player.sitting || GS.mode!=='roam') return;
+  if(player.sprint) return;          // 이미 스프린트 중 → 재적용 없음
+  if(player.dashCd>0) return;        // 쿨다운 중엔 진입 불가
+  player.sprint = true;
+  player.dashCd = DASH_CD;
   sfxDash();
 }
 
 function updatePlayer(dt){
   const dir = (input.right?1:0) - (input.left?1:0);
-  let moveV = 0;
 
+  /* ⇧(또는 터치 ») 홀드: 이동 중이면 스프린트 진입 시도(쿨다운 존중) */
+  if(input.shift && dir!==0) playerDash();
+  /* 방향키를 떼면 스프린트 종료 → 그 자리에서 멈춘다 */
+  if(dir===0) player.sprint=false;
+
+  let moveV = 0;
   if(dir!==0){
     playerStand();
     player.dir = dir;
-    moveV = dir * PLAYER_SPEED;
     player.walking = true;
     player.anim += dt*10;
+    moveV = dir * (player.sprint ? DASH_V : PLAYER_SPEED);
+    /* 스프린트 중 잔상 유지 */
+    if(player.sprint && Math.random()<0.6)
+      player.dashGhost.push({x:player.x, dir:player.dir, life:1});
   } else player.walking = false;
 
-  /* 대시 */
   if(player.dashCd>0) player.dashCd -= dt;
-  if(player.dashV!==0){
-    moveV = player.dashV;
-    player.dashV *= Math.pow(0.3, dt/DASH_TIME);    // DASH_TIME 동안 서서히 감쇠
-    if(Math.abs(player.dashV)<PLAYER_SPEED) player.dashV=0;
-    // 잔상
-    if(Math.random()<0.6)
-      player.dashGhost.push({x:player.x, dir:player.dir, life:1});
-  }
   player.dashGhost = player.dashGhost.filter(g=>(g.life-=dt*4)>0);
 
   if(moveV!==0)
@@ -94,10 +97,10 @@ function updatePlayer(dt){
 
   GS.timeScale = player.sitting ? 6 : 1;
 
-  /* 카메라: 진행 방향을 살짝 앞서 봄 (대시 중엔 더 빠르게 따라감) */
-  const lead = player.dashV!==0 ? 40 : 18;
+  /* 카메라: 진행 방향을 살짝 앞서 봄 (스프린트 중엔 더 빠르게 따라감) */
+  const lead = player.sprint ? 40 : 18;
   const target = player.x - W/2 + player.dir*lead;
-  const follow = player.dashV!==0 ? 8 : 4;
+  const follow = player.sprint ? 8 : 4;
   GS.camX += wrapDelta(target - GS.camX, WLOOP) * clamp(dt*follow, 0, 1);
 }
 

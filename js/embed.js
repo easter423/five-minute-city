@@ -40,14 +40,14 @@
 <div class="hud chip" id="toast"></div>
 
 <div id="touch">
-  <div class="tgroup left">
-    <button class="tbtn" data-k="left"  aria-label="왼쪽으로 걷기">◀</button>
-    <button class="tbtn" data-k="right" aria-label="오른쪽으로 걷기">▶</button>
-    <button class="tbtn small" data-k="dash" aria-label="대시">»</button>
-  </div>
-  <div class="tgroup right">
+  <div class="tgroup actions">
     <button class="tbtn" data-k="interact" aria-label="살펴보기">↑</button>
     <button class="tbtn" data-k="jump"     aria-label="점프">✦</button>
+    <button class="tbtn" data-k="dash"     aria-label="대시(홀드 스프린트)">»</button>
+  </div>
+  <div class="tgroup move">
+    <button class="tbtn" data-k="left"  aria-label="왼쪽으로 걷기">◀</button>
+    <button class="tbtn" data-k="right" aria-label="오른쪽으로 걷기">▶</button>
   </div>
 </div>
 

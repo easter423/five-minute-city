@@ -262,7 +262,7 @@ function onKeyDown(e){
         lastTap.right=n; }
       input.right=true; e.preventDefault(); break;
     case 'ShiftLeft': case 'ShiftRight':
-      playerDash(); e.preventDefault(); break;
+      input.shift=true; e.preventDefault(); break;   // 홀드 스프린트 (떼면 걷기)
     case 'ArrowUp': case 'KeyZ': case 'Enter':
       if(!e.repeat) actionPrimary(); e.preventDefault(); break;
     case 'Space':
@@ -287,6 +287,7 @@ function onKeyUp(e){
   if(fmcPaused) return;
   if(e.code==='ArrowLeft')  input.left=false;
   if(e.code==='ArrowRight') input.right=false;
+  if(e.code==='ShiftLeft'||e.code==='ShiftRight'){ input.shift=false; player.sprint=false; }
 }
 function jumpTime(target){
   GS.tOff=(target-(GS.dayTime/DAY)%1+2)%1; sfxBlip(660);
@@ -298,6 +299,13 @@ function jumpTime(target){
 function wireTouch(){
   if(matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window)
     document.body.classList.add('is-touch');
+  /* #fmc-root 는 position:fixed → z-auto 스태킹 컨텍스트라 그 내부 z-index 로는
+     호스트 HUD(z-40) 위로 못 올라간다. 터치 컨트롤을 #fmc-root 밖(부모=임베드
+     컨테이너 / 독립 실행 body)으로 옮겨 루트 컨텍스트에서 z-60 이 먹게 한다.
+     부모가 임베드 컨테이너면 건물 입장 시 display 토글도 함께 따라간다. */
+  const touchEl = $('touch');
+  const host = $('fmc-root') && $('fmc-root').parentNode;
+  if(touchEl && host && touchEl.parentNode !== host) host.appendChild(touchEl);
   document.querySelectorAll('.tbtn').forEach(b=>{
     const k=b.dataset.k;
     const down=e=>{ e.preventDefault();
@@ -308,13 +316,14 @@ function wireTouch(){
       else if(k==='right'){ const n=performance.now();
         if(n-lastTap.right<DOUBLE_MS){ player.dir=1; playerDash(); } lastTap.right=n;
         input.right=true; }
-      else if(k==='dash') playerDash();
+      else if(k==='dash') input.shift=true;   // ⇧ 와 동일: 누르는 동안 스프린트 유지
       else if(k==='interact') actionPrimary();
       else if(k==='jump') actionJump();
     };
     const up=e=>{ e.preventDefault();
       if(k==='left')input.left=false;
       if(k==='right')input.right=false;
+      if(k==='dash'){ input.shift=false; player.sprint=false; }
     };
     reg(b,'pointerdown',down);
     reg(b,'pointerup',up);
@@ -652,7 +661,7 @@ function fmcPause(){
   if(fmcPaused) return;
   fmcPaused = true;
   if(rafId){ cancelAnimationFrame(rafId); rafId=0; }
-  input.left=false; input.right=false;   // 눌린 키 고착 방지
+  input.left=false; input.right=false; input.shift=false; player.sprint=false;   // 눌린 키/스프린트 고착 방지
 }
 function fmcResume(){
   if(!fmcPaused) return;
@@ -667,6 +676,8 @@ function fmcDestroy(){
   fmcTimers.length=0;
   for(const l of fmcListeners){ try{ l.target.removeEventListener(l.type,l.fn); }catch(e){} }
   fmcListeners.length=0;
+  // wireTouch 가 #fmc-root 밖으로 옮긴 터치 컨트롤 정리(#fmc-root 제거만으론 안 지워짐)
+  const te=$('touch'); if(te && te.parentNode){ te.parentNode.removeChild(te); }
 }
 
 /* 독립 실행(index.html)은 여기서 자동 부트. 임베드는 FMC.boot 가 호출. */

@@ -65,21 +65,25 @@
   white-space:pre-line;
 }
 
-/* ---------- touch controls ---------- */
+/* ---------- touch controls ----------
+   레이아웃 계약: 이동 ◀▶ 은 우측 하단 가로, 그 위에 ↑·✦·» 세로 스택.
+   좌측 하단은 호스트 채팅 패널 영역이라 비운다. z-index 60(호스트 HUD z-40 위). */
 #touch{display:none}
 body.is-touch #touch{display:block}
 body.is-touch #legend{display:none}
-.tgroup{position:fixed;bottom:18px;z-index:20;display:flex;gap:10px}
-.tgroup.left{left:16px}
-.tgroup.right{right:16px}
+.tgroup{position:fixed;right:16px;z-index:60;display:flex;touch-action:none}
+.tgroup.move{bottom:16px;flex-direction:row;gap:14px}        /* ◀ ▶ 가로 */
+.tgroup.actions{bottom:88px;flex-direction:column;gap:12px}  /* ↑ ✦ » 세로(이동 위) */
 .tbtn{
-  width:52px;height:52px;border-radius:50%;
+  box-sizing:border-box;                               /* #fmc-root 밖으로 이동해도 크기 고정 */
+  width:56px;height:56px;border-radius:50%;            /* 터치 타겟 48px 이상 */
   border:1px solid var(--chip-line);background:var(--chip);
-  color:#fff;font-family:inherit;font-size:20px;
+  backdrop-filter:blur(3px);
+  color:#fff;font-family:inherit;font-size:22px;
   display:flex;align-items:center;justify-content:center;
+  user-select:none;-webkit-user-select:none;touch-action:none;
 }
 .tbtn:active{background:rgba(255,210,127,.3)}
-.tbtn.small{width:40px;height:40px;font-size:18px;align-self:center}
 
 /* ---------- overlays / panels ---------- */
 .overlay{
